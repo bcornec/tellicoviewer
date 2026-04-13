@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  res/values/strings.xml
+  Chaînes de caractères en anglais (langue par défaut).
+  Pour la localisation, copier dans values-fr/, values-es/, etc.
+  Compatible avec Transifex : les fichiers PO sont dans /po/ et convertis en strings.xml.
+-->
+<resources>
+    <string name="app_name">TellicoViewer</string>
+
+    <!-- Navigation -->
+    <string name="menu">Menu</string>
+    <string name="back">Back</string>
+    <string name="search">Search</string>
+    <string name="filter">Filter</string>
+    <string name="sync">Synchronize</string>
+
+    <!-- Collections -->
+    <string name="collections">Collections</string>
+    <string name="no_collections">No collection yet.\nImport a .tc file to start.</string>
+    <string name="delete">Delete</string>
+    <string name="import_file">Import .tc file</string>
+    <string name="empty_collection_hint">Import a Tellico file to explore your collection</string>
+
+    <!-- Collection types -->
+    <string name="collection_type_books">Books</string>
+    <string name="collection_type_video">Videos</string>
+    <string name="collection_type_music">Music</string>
+    <string name="collection_type_coins">Coins</string>
+    <string name="collection_type_stamps">Stamps</string>
+    <string name="collection_type_wines">Wines</string>
+    <string name="collection_type_games">Video Games</string>
+    <string name="collection_type_boardgames">Board Games</string>
+    <string name="collection_type_custom">Custom</string>
+
+    <!-- Search -->
+    <string name="search_hint">Search in collection…</string>
+    <string name="no_results">No results for this search</string>
+
+    <!-- Filters -->
+    <string name="filter_by_field">Filter by field</string>
+    <string name="field">Field</string>
+    <string name="value">Value</string>
+    <string name="filter_value">Filter value</string>
+    <string name="apply">Apply</string>
+    <string name="cancel">Cancel</string>
+    <string name="clear_filter">Clear filter</string>
+
+    <!-- Import -->
+    <string name="importing">Importing…</string>
+    <string name="import_error">Import error</string>
+    <string name="import_success">Import successful</string>
+
+    <!-- Detail -->
+    <string name="detail_title">Details</string>
+    <string name="no_cover">No cover</string>
+
+    <!-- Sync -->
+    <string name="sync_title">Wi-Fi Synchronization</string>
+    <string name="sync_running">Server running</string>
+    <string name="sync_stopped">Server stopped</string>
+    <string name="sync_error">Server error</string>
+    <string name="start_server">Start server</string>
+    <string name="stop_server">Stop server</string>
+    <string name="imported_files">Imported files</string>
+    <string name="sync_instructions_title">How to synchronize</string>
+    <string name="sync_step1">Connect PC and phone to the same Wi-Fi network</string>
+    <string name="sync_step2">Start the server with the button above</string>
+    <string name="sync_step3">Open the displayed URL in your PC browser</string>
+    <string name="sync_step4">Upload your .tc file from the web interface</string>
+<!-- Field configuration screen -->
+    <string name="field_config_title">Configure columns</string>
+    <string name="field_config_reset">Reset to defaults</string>
+    <string name="field_config_save">Save</string>
+    <string name="field_config_show_all">Show all</string>
+    <string name="field_config_hide_all">Hide all</string>
+    <string name="field_config_visible_count">%1$d of %2$d columns visible</string>
+<!-- About dialog -->
+    <string name="about_title">About</string>
+    <string name="about_version">Version %1$s</string>
+    <string name="about_description">Viewer for Tellico collection files (.tc).\nSupports books, DVDs, music, comics and more.</string>
+</resources>

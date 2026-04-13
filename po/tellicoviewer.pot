@@ -1,0 +1,185 @@
+# TellicoViewer - Fichier de traduction (template PO)
+# Ce fichier est le template source (msgid = anglais, msgstr vide).
+# Les traducteurs remplissent msgstr dans leur langue.
+#
+# WORKFLOW TRANSIFEX :
+# 1. Ce fichier .pot est uploadé sur Transifex comme "source resource"
+# 2. Les traducteurs travaillent sur l'interface Transifex
+# 3. On télécharge les .po complétés avec : tx pull -a
+# 4. On les convertit en strings.xml Android avec :
+#    po2android --progress=none -i po/fr.po -t app/src/main/res/values/strings.xml \
+#               -o app/src/main/res/values-fr/strings.xml
+#
+# OUTIL : translate-toolkit (pip install translate-toolkit)
+# ALTERNATIVE : utiliser le plugin Gradle "android-resource-translator"
+#
+# msgctxt est l'identifiant du string (correspond au name= dans strings.xml)
+
+msgid ""
+msgstr ""
+"Project-Id-Version: TellicoViewer 1.0.0\n"
+"Report-Msgid-Bugs-To: https://codeberg.org/tellicoviewer/issues\n"
+"POT-Creation-Date: 2024-01-01 00:00+0000\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"Language: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+msgctxt "app_name"
+msgid "TellicoViewer"
+msgstr ""
+
+msgctxt "menu"
+msgid "Menu"
+msgstr ""
+
+msgctxt "back"
+msgid "Back"
+msgstr ""
+
+msgctxt "search"
+msgid "Search"
+msgstr ""
+
+msgctxt "filter"
+msgid "Filter"
+msgstr ""
+
+msgctxt "sync"
+msgid "Synchronize"
+msgstr ""
+
+msgctxt "collections"
+msgid "Collections"
+msgstr ""
+
+msgctxt "no_collections"
+msgid "No collection yet.\\nImport a .tc file to start."
+msgstr ""
+
+msgctxt "delete"
+msgid "Delete"
+msgstr ""
+
+msgctxt "import_file"
+msgid "Import .tc file"
+msgstr ""
+
+msgctxt "empty_collection_hint"
+msgid "Import a Tellico file to explore your collection"
+msgstr ""
+
+msgctxt "collection_type_books"
+msgid "Books"
+msgstr ""
+
+msgctxt "collection_type_video"
+msgid "Videos"
+msgstr ""
+
+msgctxt "collection_type_music"
+msgid "Music"
+msgstr ""
+
+msgctxt "collection_type_wines"
+msgid "Wines"
+msgstr ""
+
+msgctxt "collection_type_games"
+msgid "Video Games"
+msgstr ""
+
+msgctxt "collection_type_boardgames"
+msgid "Board Games"
+msgstr ""
+
+msgctxt "collection_type_custom"
+msgid "Custom"
+msgstr ""
+
+msgctxt "search_hint"
+msgid "Search in collection…"
+msgstr ""
+
+msgctxt "no_results"
+msgid "No results for this search"
+msgstr ""
+
+msgctxt "filter_by_field"
+msgid "Filter by field"
+msgstr ""
+
+msgctxt "field"
+msgid "Field"
+msgstr ""
+
+msgctxt "value"
+msgid "Value"
+msgstr ""
+
+msgctxt "filter_value"
+msgid "Filter value"
+msgstr ""
+
+msgctxt "apply"
+msgid "Apply"
+msgstr ""
+
+msgctxt "cancel"
+msgid "Cancel"
+msgstr ""
+
+msgctxt "importing"
+msgid "Importing…"
+msgstr ""
+
+msgctxt "import_error"
+msgid "Import error"
+msgstr ""
+
+msgctxt "import_success"
+msgid "Import successful"
+msgstr ""
+
+msgctxt "detail_title"
+msgid "Details"
+msgstr ""
+
+msgctxt "sync_title"
+msgid "Wi-Fi Synchronization"
+msgstr ""
+
+msgctxt "sync_running"
+msgid "Server running"
+msgstr ""
+
+msgctxt "sync_stopped"
+msgid "Server stopped"
+msgstr ""
+
+msgctxt "start_server"
+msgid "Start server"
+msgstr ""
+
+msgctxt "stop_server"
+msgid "Stop server"
+msgstr ""
+
+msgctxt "sync_step1"
+msgid "Connect PC and phone to the same Wi-Fi network"
+msgstr ""
+
+msgctxt "sync_step2"
+msgid "Start the server with the button above"
+msgstr ""
+
+msgctxt "sync_step3"
+msgid "Open the displayed URL in your PC browser"
+msgstr ""
+
+msgctxt "sync_step4"
+msgid "Upload your .tc file from the web interface"
+msgstr ""

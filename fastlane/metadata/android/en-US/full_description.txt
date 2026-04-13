@@ -1,0 +1,17 @@
+TellicoViewer lets you browse your Tellico collections on Android.
+
+Tellico is a KDE application for managing collections (books, DVDs, music, wines, coins...).
+TellicoViewer imports .tc files and displays them in a fast, searchable Airtable-style grid.
+
+Features:
+• Import .tc files (Tellico ZIP+XML format)
+• Auto-detect collection type and schema (books, videos, music, wines...)
+• Airtable-style grid with frozen columns and column resizing
+• Full-text search with fuzzy matching and relevance ranking
+• Filter by any field value
+• Detail view with cover images
+• Wi-Fi sync: upload .tc files from your PC browser
+• Works offline after import
+• Supports collections with 10,000+ items
+
+No ads. No tracking. No cloud required. 100% open source (GPL-3.0).

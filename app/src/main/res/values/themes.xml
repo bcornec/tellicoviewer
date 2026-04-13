@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  themes.xml
+  Thème Android de base pour l'activité.
+  On utilise Theme.AppCompat.Light.NoActionBar car Compose fournit
+  sa propre TopAppBar — pas besoin de l'ActionBar système.
+  Le vrai thème Material3 est appliqué dans TellicoViewerTheme (Compose).
+-->
+<resources>
+    <style name="Theme.TellicoViewer" parent="Theme.AppCompat.Light.NoActionBar">
+        <!-- Couleur de la barre de statut (transparente, Compose gère le contenu) -->
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowTranslucentStatus">false</item>
+        <item name="android:windowTranslucentNavigation">false</item>
+        <!-- Compose gère le fond — on met un blanc neutre par défaut -->
+        <item name="android:windowBackground">@android:color/white</item>
+    </style>
+</resources>

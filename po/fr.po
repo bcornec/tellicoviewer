@@ -1,0 +1,170 @@
+# TellicoViewer - Traduction française
+# Copyright (C) 2024 TellicoViewer Contributors
+# This file is distributed under the same license as the TellicoViewer package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+msgid ""
+msgstr ""
+"Project-Id-Version: TellicoViewer 1.0.0\n"
+"PO-Revision-Date: 2024-01-01 00:00+0100\n"
+"Language-Team: French\n"
+"Language: fr\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n > 1);\n"
+
+msgctxt "app_name"
+msgid "TellicoViewer"
+msgstr "TellicoViewer"
+
+msgctxt "menu"
+msgid "Menu"
+msgstr "Menu"
+
+msgctxt "back"
+msgid "Back"
+msgstr "Retour"
+
+msgctxt "search"
+msgid "Search"
+msgstr "Rechercher"
+
+msgctxt "filter"
+msgid "Filter"
+msgstr "Filtrer"
+
+msgctxt "sync"
+msgid "Synchronize"
+msgstr "Synchroniser"
+
+msgctxt "collections"
+msgid "Collections"
+msgstr "Collections"
+
+msgctxt "no_collections"
+msgid "No collection yet.\\nImport a .tc file to start."
+msgstr "Aucune collection.\\nImportez un fichier .tc pour commencer."
+
+msgctxt "delete"
+msgid "Delete"
+msgstr "Supprimer"
+
+msgctxt "import_file"
+msgid "Import .tc file"
+msgstr "Importer un fichier .tc"
+
+msgctxt "empty_collection_hint"
+msgid "Import a Tellico file to explore your collection"
+msgstr "Importez un fichier Tellico pour explorer votre collection"
+
+msgctxt "collection_type_books"
+msgid "Books"
+msgstr "Livres"
+
+msgctxt "collection_type_video"
+msgid "Videos"
+msgstr "Vidéos"
+
+msgctxt "collection_type_music"
+msgid "Music"
+msgstr "Musique"
+
+msgctxt "collection_type_wines"
+msgid "Wines"
+msgstr "Vins"
+
+msgctxt "collection_type_games"
+msgid "Video Games"
+msgstr "Jeux vidéo"
+
+msgctxt "collection_type_boardgames"
+msgid "Board Games"
+msgstr "Jeux de plateau"
+
+msgctxt "collection_type_custom"
+msgid "Custom"
+msgstr "Personnalisée"
+
+msgctxt "search_hint"
+msgid "Search in collection…"
+msgstr "Rechercher dans la collection…"
+
+msgctxt "no_results"
+msgid "No results for this search"
+msgstr "Aucun résultat pour cette recherche"
+
+msgctxt "filter_by_field"
+msgid "Filter by field"
+msgstr "Filtrer par champ"
+
+msgctxt "field"
+msgid "Field"
+msgstr "Champ"
+
+msgctxt "value"
+msgid "Value"
+msgstr "Valeur"
+
+msgctxt "filter_value"
+msgid "Filter value"
+msgstr "Valeur du filtre"
+
+msgctxt "apply"
+msgid "Apply"
+msgstr "Appliquer"
+
+msgctxt "cancel"
+msgid "Cancel"
+msgstr "Annuler"
+
+msgctxt "importing"
+msgid "Importing…"
+msgstr "Import en cours…"
+
+msgctxt "import_error"
+msgid "Import error"
+msgstr "Erreur d'import"
+
+msgctxt "import_success"
+msgid "Import successful"
+msgstr "Import réussi"
+
+msgctxt "detail_title"
+msgid "Details"
+msgstr "Détails"
+
+msgctxt "sync_title"
+msgid "Wi-Fi Synchronization"
+msgstr "Synchronisation Wi-Fi"
+
+msgctxt "sync_running"
+msgid "Server running"
+msgstr "Serveur actif"
+
+msgctxt "sync_stopped"
+msgid "Server stopped"
+msgstr "Serveur arrêté"
+
+msgctxt "start_server"
+msgid "Start server"
+msgstr "Démarrer le serveur"
+
+msgctxt "stop_server"
+msgid "Stop server"
+msgstr "Arrêter le serveur"
+
+msgctxt "sync_step1"
+msgid "Connect PC and phone to the same Wi-Fi network"
+msgstr "Connectez le PC et le téléphone au même réseau Wi-Fi"
+
+msgctxt "sync_step2"
+msgid "Start the server with the button above"
+msgstr "Démarrez le serveur avec le bouton ci-dessus"
+
+msgctxt "sync_step3"
+msgid "Open the displayed URL in your PC browser"
+msgstr "Ouvrez l'URL affichée dans le navigateur de votre PC"
+
+msgctxt "sync_step4"
+msgid "Upload your .tc file from the web interface"
+msgstr "Uploadez votre fichier .tc depuis l'interface web"
