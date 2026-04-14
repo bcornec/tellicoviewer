@@ -5,8 +5,10 @@ import android.net.Uri
 import android.util.Log
 import androidx.paging.*
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import org.fdroid.tellicoviewer.data.db.*
@@ -85,39 +87,45 @@ class TellicoRepository @Inject constructor(
     ): Result<Long> = runCatching {
         Log.i(TAG, "Import depuis URI : $uri")
 
-        // Ouvrir le fichier via ContentResolver (couche d'abstraction Android)
-        val inputStream = context.contentResolver.openInputStream(uri)
-            ?: throw IllegalArgumentException("Impossible d'ouvrir le fichier : $uri")
+        // Tout le travail lourd (I/O fichier, ZIP, parsing XML, SHA-256, inserts Room)
+        // est exécuté sur Dispatchers.IO pour ne jamais bloquer le thread UI.
+        // onProgress émet via StateFlow thread-safe → pas besoin de revenir sur Main.
+        withContext(Dispatchers.IO) {
+            onProgress(5, "Vérification du fichier...")
 
-        // Calcul du hash pour détecter les modifications futures (synchro)
-        val fileBytes = inputStream.use { it.readBytes() }
-        val hash = sha256(fileBytes)
+            // Passe 1 : calculer le hash SHA-256 du fichier ZIP (sans décompresser)
+            // On lit le fichier une première fois en streaming pour le hash.
+            val hash = context.contentResolver.openInputStream(uri)
+                ?.use { sha256Stream(it) }
+                ?: throw IllegalArgumentException("Impossible d'ouvrir le fichier : $uri")
 
-        onProgress(5, "Vérification du fichier...")
+            val existingByPath = db.collectionDao().getBySourceFile(uri.toString())
+            if (existingByPath != null) {
+                Log.i(TAG, "Collection déjà importée, mise à jour...")
+                db.collectionDao().deleteById(existingByPath.id)
+            }
 
-        // Vérifier si la collection existe déjà avec le même hash → pas de réimport
-        val existingByPath = db.collectionDao().getBySourceFile(uri.toString())
-        if (existingByPath != null) {
-            Log.i(TAG, "Collection déjà importée, mise à jour...")
-            // Supprimer l'ancienne version pour réimporter
-            db.collectionDao().deleteById(existingByPath.id)
+            onProgress(8, "Parsing du fichier...")
+
+            // Passe 2 : parser le fichier en streaming (sans tout charger en RAM)
+            val result = context.contentResolver.openInputStream(uri)
+                ?.use { parser.parse(it, onProgress) }
+                ?: throw IllegalArgumentException("Impossible d'ouvrir le fichier : $uri")
+
+            val collection = result.collection
+
+            // Insérer en base Room
+            val collectionId = insertCollectionToDb(
+                collection  = collection,
+                images      = result.images,
+                sourceUri   = uri.toString(),
+                fileHash    = hash,
+                onProgress  = onProgress
+            )
+
+            Log.i(TAG, "Import réussi : ${collection.entries.size} articles, ID=$collectionId")
+            collectionId
         }
-
-        // Parser le fichier
-        val result = parser.parse(fileBytes.inputStream(), onProgress)
-        val collection = result.collection
-
-        // Insérer en base dans une transaction atomique
-        val collectionId = insertCollectionToDb(
-            collection  = collection,
-            images      = result.images,
-            sourceUri   = uri.toString(),
-            fileHash    = hash,
-            onProgress  = onProgress
-        )
-
-        Log.i(TAG, "Import réussi : ${collection.entries.size} articles, ID=$collectionId")
-        collectionId
     }
 
     // ---------------------------------------------------------------------------
@@ -287,6 +295,21 @@ class TellicoRepository @Inject constructor(
     private fun sha256(bytes: ByteArray): String {
         val digest = MessageDigest.getInstance("SHA-256")
         return digest.digest(bytes).joinToString("") { "%02x".format(it) }
+    }
+
+    /**
+     * Calcule le SHA-256 d'un InputStream en streaming (sans charger tout en RAM).
+     * Adapté aux gros fichiers comme Disques.tc (37 Mo décompressé).
+     */
+    private fun sha256Stream(input: java.io.InputStream): String {
+        val digest = MessageDigest.getInstance("SHA-256")
+        val buffer = ByteArray(65536)  // 64 Ko par chunk
+        var n = input.read(buffer)
+        while (n > 0) {
+            digest.update(buffer, 0, n)
+            n = input.read(buffer)
+        }
+        return digest.digest().joinToString("") { "%02x".format(it) }
     }
 
     private fun guessMimeType(filename: String): String = when {

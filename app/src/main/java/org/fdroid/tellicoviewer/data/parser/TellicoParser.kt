@@ -211,6 +211,21 @@ class TellicoParser {
     // Postcondition : parser est sur END_TAG du tag (la boucle appelante fera next())
     // -------------------------------------------------------------------------
 
+    /**
+     * Lit un tag enfant d'une entry et stocke sa valeur dans curFields.
+     *
+     * Gère 4 patterns XML Tellico :
+     *
+     * 1. TEXTE DIRECT   : <binding>Souple</binding>
+     * 2. WRAPPER SIMPLE : <authors><author>Herbert</author></authors>
+     *    → childTexts = ["Herbert"], valeur = "Herbert"
+     * 3. TABLE 2 niveaux : <casts><cast><column>A</column><column>B</column></cast></casts>
+     *    → chaque <cast> produit "A	B", séparés par LIST_SEPARATOR
+     * 4. DATE           : <date-achat><year>Y</year><month>M</month><day>D</day></date-achat>
+     *    → valeur = "Y-MM-DD"
+     *
+     * Postcondition : le curseur parser est sur le END_TAG du tag de départ.
+     */
     private fun readEntryChild(
         parser: XmlPullParser,
         tag: String,
@@ -219,10 +234,8 @@ class TellicoParser {
         curFields: MutableMap<String, String>,
         curImages: MutableList<String>
     ) {
-        // Résoudre le field_name cible
-        val fieldName = wrapperIndex[tag] ?: tag   // fallback = tag lui-même
+        val fieldName = wrapperIndex[tag] ?: tag
 
-        // Cas spécial : image
         if (tag == "image") {
             parser.getAttributeValue(null, "id")?.takeIf { it.isNotEmpty() }
                 ?.let { curImages.add(it) }
@@ -230,12 +243,10 @@ class TellicoParser {
             return
         }
 
-        // Lire TOUT le contenu de ce tag (enfants + texte)
-        // On construit : directText et la liste des enfants (childTag, childText)
-        var directText    = ""
-        val childTexts    = mutableListOf<String>()      // textes des enfants
-        val childDateParts = mutableMapOf<String, String>()  // "year","month","day" → valeur
-        var depth = 1
+        var directText          = ""
+        val rowValues           = mutableListOf<String>()   // valeurs des lignes (wrapper ou table)
+        val childDateParts      = mutableMapOf<String, String>()
+        var depth               = 1
 
         var ev = parser.next()
         while (depth > 0) {
@@ -243,22 +254,23 @@ class TellicoParser {
                 XmlPullParser.START_TAG -> {
                     depth++
                     val childTag = parser.name.localName()
-                    // Lire le texte de cet enfant (peut lui-même avoir des enfants, ex: tracks)
-                    val childSb = StringBuilder()
-                    var cev = parser.next()
-                    while (cev != XmlPullParser.END_TAG && cev != XmlPullParser.END_DOCUMENT) {
-                        if (cev == XmlPullParser.TEXT) childSb.append(parser.text?.trim() ?: "")
-                        // Ignorer les sous-sous-éléments (ex: colonnes d'une piste)
-                        if (cev == XmlPullParser.START_TAG) { skipElement(parser); continue }
-                        cev = parser.next()
-                    }
-                    // cev == END_TAG du childTag → profondeur descend
-                    depth--
-                    val ct = childSb.toString().trim()
-                    // Accumuler selon le type de contenu
+
                     when (childTag) {
-                        "year", "month", "day" -> childDateParts[childTag] = ct
-                        else -> if (ct.isNotEmpty()) childTexts.add(ct)
+                        // Champ date : accumuler year/month/day directement
+                        "year", "month", "day" -> {
+                            val txt = readTextContent(parser)  // lit jusqu'au END_TAG de year/month/day
+                            depth--
+                            if (txt.isNotEmpty()) childDateParts[childTag] = txt
+                        }
+                        else -> {
+                            // Lire le contenu de cet enfant.
+                            // Il peut s'agir :
+                            //   - d'un texte direct (wrapper simple : <author>Herbert</author>)
+                            //   - de sous-éléments <column> (table : <cast><column>A</column><column>B</column></cast>)
+                            val row = readChildWithColumns(parser)
+                            depth--
+                            if (row.isNotEmpty()) rowValues.add(row)
+                        }
                     }
                 }
                 XmlPullParser.TEXT -> directText += parser.text?.trim() ?: ""
@@ -267,28 +279,78 @@ class TellicoParser {
             }
             if (depth > 0) ev = parser.next()
         }
-        // Ici : parser est sur END_TAG du tag de départ ✓
+        // Curseur sur END_TAG du tag de départ ✓
 
-        // Choisir la valeur à stocker
         val value: String = when {
-            // Date avec year/month/day
             fieldName in dateFields && childDateParts.isNotEmpty() -> {
                 val y = childDateParts["year"] ?: return
                 val m = (childDateParts["month"] ?: "01").padStart(2, '0')
                 val d = (childDateParts["day"]   ?: "01").padStart(2, '0')
                 "$y-$m-$d"
             }
-            // Wrapper pluriel ou champ multi-valeurs
-            childTexts.isNotEmpty() -> childTexts.joinToString(TellicoEntry.LIST_SEPARATOR)
-            // Texte direct
+            rowValues.isNotEmpty() -> rowValues.joinToString(TellicoEntry.LIST_SEPARATOR)
             directText.isNotEmpty() -> directText
-            else -> return  // vide → ne rien stocker
+            else -> return
         }
 
-        // Stocker (concaténer si déjà présent)
         val existing = curFields[fieldName]
         curFields[fieldName] = if (existing != null)
             "$existing${TellicoEntry.LIST_SEPARATOR}$value" else value
+    }
+
+    /**
+     * Lit le contenu texte simple d'un élément jusqu'à son END_TAG.
+     * Précondition : curseur juste APRÈS le START_TAG (appelé après avoir vu le START_TAG et
+     * incrémenté depth, donc le caller doit décrémenter depth après).
+     * Postcondition : curseur SUR le END_TAG de l'élément.
+     */
+    private fun readTextContent(parser: XmlPullParser): String {
+        val sb = StringBuilder()
+        var ev = parser.next()
+        while (ev != XmlPullParser.END_TAG && ev != XmlPullParser.END_DOCUMENT) {
+            if (ev == XmlPullParser.TEXT) sb.append(parser.text?.trim() ?: "")
+            else if (ev == XmlPullParser.START_TAG) skipElement(parser)
+            ev = parser.next()
+        }
+        return sb.toString().trim()
+    }
+
+    /**
+     * Lit un enfant qui peut contenir soit du texte direct soit des sous-éléments <column>.
+     *
+     * Cas 1 — texte direct (wrapper simple) :
+     *   <author>Herbert</author>  →  "Herbert"
+     *
+     * Cas 2 — colonnes (table) :
+     *   <cast><column>Tom Cruise</column><column>Ethan Hunt</column></cast>  →  "Tom Cruise	Ethan Hunt"
+     *
+     * Précondition : curseur juste APRÈS le START_TAG de l'enfant.
+     * Postcondition : curseur SUR le END_TAG de l'enfant.
+     * Le caller doit décrémenter depth.
+     */
+    private fun readChildWithColumns(parser: XmlPullParser): String {
+        val columns = mutableListOf<String>()
+        var directText = ""
+        var ev = parser.next()
+
+        while (ev != XmlPullParser.END_TAG && ev != XmlPullParser.END_DOCUMENT) {
+            when (ev) {
+                XmlPullParser.TEXT -> directText += parser.text?.trim() ?: ""
+                XmlPullParser.START_TAG -> {
+                    // Sous-élément : lire son texte (typiquement <column>)
+                    val colText = readTextContent(parser)
+                    if (colText.isNotEmpty()) columns.add(colText)
+                }
+            }
+            ev = parser.next()
+        }
+        // ev == END_TAG de l'enfant ✓
+
+        return when {
+            columns.isNotEmpty() -> columns.joinToString("	")  // "Acteur	Rôle"
+            directText.isNotEmpty() -> directText
+            else -> ""
+        }
     }
 
     // -------------------------------------------------------------------------
