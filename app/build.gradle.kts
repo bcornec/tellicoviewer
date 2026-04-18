@@ -19,8 +19,8 @@ android {
         applicationId         = "org.fdroid.tellicoviewer"
         minSdk                = 26   // Android 8 (2017) : bon équilibre couverture/modernité
         targetSdk             = 34
-        versionCode           = 16
-        versionName           = "1.2.2"
+        versionCode           = 17
+        versionName           = "1.1.13"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -44,6 +44,15 @@ android {
             isDebuggable      = true
             applicationIdSuffix = ".debug"
         }
+    }
+
+    lint {
+        // Bloquer le build release uniquement sur les vraies erreurs
+        abortOnError   = true
+        // Ignorer les avertissements non critiques en release
+        warningsAsErrors = false
+        // Désactiver les checks qui ne s'appliquent pas à une app usage perso/F-Droid
+        disable += setOf("GoogleAppIndexingWarning", "MissingTranslation")
     }
 
     buildFeatures {

@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -303,8 +304,27 @@ class SyncViewModel @Inject constructor(
         return -1
     }
 
+    @Suppress("DEPRECATION")
     private fun getWifiIpAddress(): String {
+        // Android 12+ : utiliser ConnectivityManager + LinkProperties
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+            try {
+                val cm = context.applicationContext
+                    .getSystemService(Context.CONNECTIVITY_SERVICE) as android.net.ConnectivityManager
+                val network = cm.activeNetwork ?: return "0.0.0.0"
+                val lp = cm.getLinkProperties(network) ?: return "0.0.0.0"
+                val addr = lp.linkAddresses
+                    .map { it.address }
+                    .filterIsInstance<java.net.Inet4Address>()
+                    .firstOrNull { !it.isLoopbackAddress }
+                return addr?.hostAddress ?: "0.0.0.0"
+            } catch (e: Exception) {
+                return "0.0.0.0"
+            }
+        }
+        // Android < 12 : méthode classique (dépréciée mais fonctionnelle)
         val wifiMgr = context.applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
+        @Suppress("DEPRECATION")
         val ip = wifiMgr.connectionInfo.ipAddress
         return String.format("%d.%d.%d.%d",
             ip and 0xff, ip shr 8 and 0xff, ip shr 16 and 0xff, ip shr 24 and 0xff)
@@ -344,7 +364,7 @@ fun SyncScreen(
                         viewModel.stopServer()
                         onBack()
                     }) {
-                        Icon(Icons.Default.ArrowBack, stringResource(R.string.back))
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.back))
                     }
                 }
             )

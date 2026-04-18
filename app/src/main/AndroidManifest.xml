@@ -75,7 +75,21 @@
                 android:resource="@xml/file_provider_paths" />
         </provider>
 
-        <!-- WorkManager : service de synchronisation planifié -->
+        <!-- Désactiver l'initialisation automatique de WorkManager.
+             TellicoViewerApp implémente Configuration.Provider pour une init on-demand. -->
+        <provider
+            android:name="androidx.startup.InitializationProvider"
+            android:authorities="${applicationId}.androidx-startup"
+            android:exported="false"
+            tools:node="remove" />
+
+        <!-- WorkManager SystemForegroundService avec foregroundServiceType obligatoire -->
+        <service
+            android:name="androidx.work.impl.foreground.SystemForegroundService"
+            android:foregroundServiceType="dataSync"
+            tools:node="merge" />
+
+        <!-- Service de synchronisation de notre app -->
         <service
             android:name=".sync.SyncForegroundService"
             android:foregroundServiceType="dataSync"
