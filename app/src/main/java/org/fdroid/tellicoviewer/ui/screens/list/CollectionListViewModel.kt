@@ -43,6 +43,20 @@ class CollectionListViewModel @Inject constructor(
     private val _prefsTrigger = MutableStateFlow(0L)
     val selectedCollectionId: StateFlow<Long?> = _selectedCollectionId.asStateFlow()
 
+    /**
+     * imageBasePath de la collection sélectionnée — lu directement depuis Room.
+     * On n'utilise plus le StateFlow `collections` comme intermédiaire pour éviter
+     * les problèmes de timing lors d'un réimport (suppression + recréation de collection).
+     */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val imageBasePath: StateFlow<String?> =
+        _selectedCollectionId
+            .flatMapLatest { id ->
+                if (id == null) kotlinx.coroutines.flow.flowOf(null)
+                else repository.observeImageBasePath(id)
+            }
+            .stateIn(viewModelScope, SharingStarted.Lazily, null)
+
     private val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
 
@@ -152,6 +166,13 @@ class CollectionListViewModel @Inject constructor(
     }
 
     fun clearImportState() { _importState.value = ImportState.Idle }
+
+    /** Permet à l'utilisateur de configurer manuellement le répertoire d'images */
+    fun setImageBasePath(collectionId: Long, path: String?) {
+        viewModelScope.launch {
+            repository.updateImageBasePath(collectionId, path)
+        }
+    }
 
     /** Appelé après retour de FieldConfigScreen pour forcer la mise à jour des colonnes */
     fun refreshFieldPreferences() {

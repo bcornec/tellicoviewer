@@ -34,7 +34,8 @@ class EntryDetailViewModel @Inject constructor(
         data class Success(
             val entry: TellicoEntry,
             val fields: List<TellicoField>,
-            val collectionId: Long
+            val collectionId: Long,
+            val imageBasePath: String? = null
         ) : DetailState()
         data class Error(val message: String) : DetailState()
     }
@@ -51,8 +52,9 @@ class EntryDetailViewModel @Inject constructor(
             try {
                 val entry = repository.getEntry(collectionId, entryId)
                 val fields = repository.getFields(collectionId)
+                val imageBasePath = repository.getImageBasePath(collectionId)
                 if (entry != null) {
-                    _state.value = DetailState.Success(entry, fields, collectionId)
+                    _state.value = DetailState.Success(entry, fields, collectionId, imageBasePath)
                 } else {
                     _state.value = DetailState.Error("Article introuvable (id=$entryId)")
                 }

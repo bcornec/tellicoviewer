@@ -1,7 +1,11 @@
 package org.fdroid.tellicoviewer
 
 import android.content.Intent
+import android.net.Uri
+import android.os.Build
 import android.os.Bundle
+import android.os.Environment
+import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -33,6 +37,9 @@ class MainActivity : ComponentActivity() {
         // Affichage bord à bord (utilise tout l'écran, gère les insets)
         enableEdgeToEdge()
 
+        // Demander l'accès complet au stockage pour charger les images externes (_files/)
+        requestStoragePermission()
+
         // Traite un éventuel intent d'ouverture de fichier .tc au démarrage
         handleIntent(intent)
 
@@ -52,6 +59,36 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         handleIntent(intent)
+    }
+
+    /**
+     * Demande la permission d'accès au stockage externe pour charger les images.
+     * Sur Android 11+ : MANAGE_EXTERNAL_STORAGE via les Settings système.
+     * Sur Android <11 : READ_EXTERNAL_STORAGE via le dialog standard.
+     */
+    private fun requestStoragePermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            // Android 11+ : vérifier si on a déjà l'accès complet
+            if (!Environment.isExternalStorageManager()) {
+                try {
+                    val intent = Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION).apply {
+                        data = Uri.parse("package:$packageName")
+                    }
+                    startActivity(intent)
+                } catch (e: Exception) {
+                    // Fallback : ouvrir la page générale MANAGE_ALL_FILES
+                    startActivity(Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION))
+                }
+            }
+        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            // Android 6-10 : demander READ_EXTERNAL_STORAGE
+            if (checkSelfPermission(android.Manifest.permission.READ_EXTERNAL_STORAGE)
+                != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                requestPermissions(
+                    arrayOf(android.Manifest.permission.READ_EXTERNAL_STORAGE), 1001
+                )
+            }
+        }
     }
 
     /**

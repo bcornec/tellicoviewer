@@ -79,4 +79,9 @@
     <string name="about_title">About</string>
     <string name="about_version">Version %1$s</string>
     <string name="about_description">Viewer for Tellico collection files (.tc).\nSupports books, DVDs, music, comics and more.</string>
+<!-- Image path configuration -->
+    <string name="image_path_title">Cover images folder</string>
+    <string name="image_path_description">Path to the folder containing cover images (_files directory next to the .tc file).</string>
+    <string name="image_path_hint">Folder path (e.g. /storage/emulated/0/Download/BD_files)</string>
+    <string name="image_path_pick">Browse for folder…</string>
 </resources>

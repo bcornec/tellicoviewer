@@ -2,6 +2,9 @@ package org.fdroid.tellicoviewer.data.repository
 
 import android.content.Context
 import android.net.Uri
+import android.os.Environment
+import android.provider.DocumentsContract
+import android.provider.MediaStore
 import android.util.Log
 import androidx.paging.*
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -62,6 +65,21 @@ class TellicoRepository @Inject constructor(
         db.collectionDao().observeCollections()
 
     /** Flow du schéma (champs) d'une collection */
+    suspend fun getImageBasePath(collectionId: Long): String? =
+        db.collectionDao().getById(collectionId)?.imageBasePath
+
+    /**
+     * Flow réactif sur imageBasePath d'une collection.
+     * Émet une nouvelle valeur dès que la collection est mise à jour en base
+     * (par exemple après un import qui recalcule imageBasePath).
+     */
+    fun observeImageBasePath(collectionId: Long): kotlinx.coroutines.flow.Flow<String?> =
+        db.collectionDao().observeImageBasePath(collectionId)
+
+    suspend fun updateImageBasePath(collectionId: Long, path: String?) {
+        db.collectionDao().updateImageBasePath(collectionId, path)
+    }
+
     fun observeFields(collectionId: Long): Flow<List<TellicoField>> =
         db.fieldDao().observeFieldsForCollection(collectionId)
             .map { entities -> entities.map { it.toDomain() } }
@@ -114,13 +132,17 @@ class TellicoRepository @Inject constructor(
 
             val collection = result.collection
 
+            // Résoudre le répertoire d'images externes (ex: Livres_files/)
+            val imageBasePath = resolveImageBasePath(uri, collection.title)
+
             // Insérer en base Room
             val collectionId = insertCollectionToDb(
-                collection  = collection,
-                images      = result.images,
-                sourceUri   = uri.toString(),
-                fileHash    = hash,
-                onProgress  = onProgress
+                collection    = collection,
+                images        = result.images,
+                sourceUri     = uri.toString(),
+                fileHash      = hash,
+                imageBasePath = imageBasePath,
+                onProgress    = onProgress
             )
 
             Log.i(TAG, "Import réussi : ${collection.entries.size} articles, ID=$collectionId")
@@ -145,6 +167,7 @@ class TellicoRepository @Inject constructor(
         images: Map<String, ByteArray>,
         sourceUri: String,
         fileHash: String,
+        imageBasePath: String? = null,
         onProgress: suspend (Int, String) -> Unit
     ): Long {
         // 1. Insérer les métadonnées de la collection
@@ -154,7 +177,8 @@ class TellicoRepository @Inject constructor(
             type            = collection.type.xmlValue,
             sourceFile      = sourceUri,
             entryCount      = collection.entries.size,
-            fileHash        = fileHash
+            fileHash      = fileHash,
+            imageBasePath = imageBasePath
         )
         val collectionId = db.collectionDao().insert(collectionEntity)
 
@@ -301,7 +325,133 @@ class TellicoRepository @Inject constructor(
      * Calcule le SHA-256 d'un InputStream en streaming (sans charger tout en RAM).
      * Adapté aux gros fichiers comme Disques.tc (37 Mo décompressé).
      */
-    private fun sha256Stream(input: java.io.InputStream): String {
+    /**
+     * Résout le chemin absolu du répertoire d'images externes.
+     *
+     * Convention Tellico : répertoire = nom_fichier_sans_extension + "_files"
+     * au même niveau que le fichier .tc.
+     * Ex : Livres.tc → Livres_files/
+     *
+     * Stratégie (compatible scoped storage Android 10+) :
+     * 1. Obtenir le nom du fichier .tc via ContentResolver DISPLAY_NAME
+     * 2. Retirer l'extension → "Livres"
+     * 3. Chercher "Livres_files" dans les répertoires courants
+     */
+    private fun resolveImageBasePath(sourceUri: Uri, collectionTitle: String): String? {
+        return try {
+            // Étape 1 : obtenir le nom du fichier depuis l'URI
+            // DISPLAY_NAME fonctionne même avec scoped storage (Android 10+)
+            val displayName = getDisplayName(sourceUri)
+            Log.d(TAG, "displayName=$displayName, uri=$sourceUri")
+
+            // Construire les noms de répertoires candidats
+            val candidates = mutableListOf<String>()
+
+            if (displayName != null) {
+                val baseName = displayName.substringBeforeLast('.')  // "Livres.tc" → "Livres"
+                candidates += baseName + "_files"
+            }
+            // Fallback avec le titre Tellico (en cas où displayName indisponible)
+            candidates += collectionTitle + "_files"
+            candidates += collectionTitle.replace(" ", "_") + "_files"
+
+            // Étape 2 : chercher dans les répertoires courants
+            val searchDirs = mutableListOf<java.io.File>()
+
+            // Essayer d'obtenir le chemin réel du parent via MediaStore
+            val realPath = tryGetRealPath(sourceUri)
+            if (realPath != null) {
+                val parent = java.io.File(realPath).parentFile
+                if (parent != null) searchDirs += parent
+                Log.d(TAG, "realPath=$realPath, parent=$parent")
+            }
+
+            // Toujours chercher aussi dans Downloads (le cas le plus courant)
+            searchDirs += Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+            // Et dans le stockage externe racine
+            searchDirs += Environment.getExternalStorageDirectory()
+
+            for (dir in searchDirs) {
+                for (candidate in candidates) {
+                    val imagesDir = java.io.File(dir, candidate)
+                    Log.d(TAG, "Cherche images dans : ${imagesDir.absolutePath} → exists=${imagesDir.exists()}")
+                    if (imagesDir.exists() && imagesDir.isDirectory) {
+                        Log.i(TAG, "Répertoire images trouvé : ${imagesDir.absolutePath}")
+                        return imagesDir.absolutePath
+                    }
+                }
+            }
+
+            Log.w(TAG, "Aucun répertoire _files trouvé (candidats=$candidates)")
+            null
+        } catch (e: Exception) {
+            Log.w(TAG, "resolveImageBasePath error: ${e.message}")
+            null
+        }
+    }
+
+    /**
+     * Obtient le nom d'affichage du fichier depuis son URI content://.
+     * Fonctionne même avec scoped storage (Android 10+).
+     */
+    private fun getDisplayName(uri: Uri): String? {
+        if (uri.scheme == "file") return java.io.File(uri.path ?: return null).name
+        return try {
+            context.contentResolver.query(
+                uri,
+                arrayOf(android.provider.OpenableColumns.DISPLAY_NAME),
+                null, null, null
+            )?.use { cursor ->
+                if (cursor.moveToFirst()) {
+                    val idx = cursor.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
+                    if (idx >= 0) cursor.getString(idx) else null
+                } else null
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "getDisplayName: ${e.message}")
+            null
+        }
+    }
+
+    /**
+     * Tente d'obtenir le chemin absolu depuis un URI.
+     * Peut retourner null sur Android 10+ avec scoped storage.
+     */
+    private fun tryGetRealPath(uri: Uri): String? {
+        if (uri.scheme == "file") return uri.path
+        val authority = uri.authority ?: return null
+        return try {
+            when {
+                authority.contains("externalstorage") -> {
+                    val docId = android.provider.DocumentsContract.getDocumentId(uri)
+                    val split = docId.split(":")
+                    if (split.size >= 2 && split[0].equals("primary", true))
+                        "${Environment.getExternalStorageDirectory()}/${split[1]}"
+                    else null
+                }
+                authority.contains("downloads") -> {
+                    val docId = android.provider.DocumentsContract.getDocumentId(uri)
+                    if (docId.startsWith("raw:")) docId.removePrefix("raw:")
+                    else null  // msf: IDs ne donnent pas de chemin réel sur Android 10+
+                }
+                else -> {
+                    context.contentResolver.query(
+                        uri, arrayOf(MediaStore.MediaColumns.DATA), null, null, null
+                    )?.use { cursor ->
+                        if (cursor.moveToFirst()) {
+                            val idx = cursor.getColumnIndex(MediaStore.MediaColumns.DATA)
+                            if (idx >= 0) cursor.getString(idx)?.takeIf { it.isNotEmpty() } else null
+                        } else null
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "tryGetRealPath: ${e.message}")
+            null
+        }
+    }
+
+        private fun sha256Stream(input: java.io.InputStream): String {
         val digest = MessageDigest.getInstance("SHA-256")
         val buffer = ByteArray(65536)  // 64 Ko par chunk
         var n = input.read(buffer)

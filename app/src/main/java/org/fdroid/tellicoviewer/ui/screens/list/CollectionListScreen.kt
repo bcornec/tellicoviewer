@@ -97,6 +97,8 @@ import androidx.paging.LoadState
 import androidx.paging.compose.LazyPagingItems
 import androidx.paging.compose.collectAsLazyPagingItems
 import androidx.paging.compose.itemKey
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
 import org.fdroid.tellicoviewer.R
 import org.fdroid.tellicoviewer.data.db.CollectionWithFieldCount
 import org.fdroid.tellicoviewer.data.model.FieldType
@@ -108,6 +110,7 @@ import org.fdroid.tellicoviewer.ui.components.CollectionSidePanel
 import org.fdroid.tellicoviewer.ui.components.FieldFilterDialog
 import org.fdroid.tellicoviewer.ui.components.FieldTypeIcon
 import org.fdroid.tellicoviewer.ui.components.AboutDialog
+import org.fdroid.tellicoviewer.ui.components.ImagePathDialog
 import org.fdroid.tellicoviewer.ui.components.ImportProgressDialog
 import org.fdroid.tellicoviewer.ui.components.TellicoTopBar
 import org.fdroid.tellicoviewer.ui.theme.TellicoColors
@@ -132,13 +135,38 @@ fun CollectionListScreen(
     val searchQuery        by viewModel.searchQuery.collectAsStateWithLifecycle()
     val fieldFilter        by viewModel.fieldFilter.collectAsStateWithLifecycle()
     val importState        by viewModel.importState.collectAsStateWithLifecycle()
+    val imageBasePath      by viewModel.imageBasePath.collectAsStateWithLifecycle()
+    // Debug : log imageBasePath pour diagnostiquer
+    android.util.Log.d("TellicoImages", "imageBasePath=$imageBasePath selectedId=$selectedId")
     val entries: LazyPagingItems<TellicoEntry> = viewModel.entries.collectAsLazyPagingItems()
 
     // Largeurs des colonnes : état local mutable (redimensionnement par drag)
     var columnWidths by remember { mutableStateOf(mapOf<String, Dp>()) }
     var frozenField  by remember { mutableStateOf<String?>(null) }
     var showFilterDialog by remember { mutableStateOf(false) }
-    var showAboutDialog  by remember { mutableStateOf(false) }
+    var showAboutDialog    by remember { mutableStateOf(false) }
+    var showImagePathDialog by remember { mutableStateOf(false) }
+
+    // Launcher pour sélectionner un répertoire (images externes)
+    val imagePathLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocumentTree()
+    ) { treeUri ->
+        if (treeUri != null && selectedId != null) {
+            // Convertir l'URI en chemin lisible
+            val path = treeUri.path?.let { p ->
+                // content://com.android.externalstorage.documents/tree/primary:Download/BD_files
+                // → /storage/emulated/0/Download/BD_files
+                when {
+                    p.contains("primary:") -> {
+                        val rel = p.substringAfter("primary:")
+                        "/storage/emulated/0/$rel"
+                    }
+                    else -> p
+                }
+            }
+            viewModel.setImageBasePath(selectedId!!, path)
+        }
+    }
     var showDrawer       by remember { mutableStateOf(true) }
 
     // Lanceur de sélection de fichier .tc
@@ -171,6 +199,7 @@ fun CollectionListScreen(
                 onFilterClick  = { showFilterDialog = true },
                 onSyncClick    = onSyncClick,
                 onConfigClick  = { selectedId?.let { id -> onConfigClick(id) } },
+                onImagePathClick = { showImagePathDialog = true },
                 onAboutClick   = { showAboutDialog = true },
                 onMenuClick    = { showDrawer = !showDrawer },
                 hasFilter      = fieldFilter != null
@@ -249,7 +278,9 @@ fun CollectionListScreen(
                             selectedId?.let { cid ->
                                 onEntryClick(cid, entry.id.toLong())
                             }
-                        }
+                        },
+                        collectionId         = selectedId ?: 0L,
+                        imageBasePath        = imageBasePath
                     )
                 }
             }
@@ -270,6 +301,21 @@ fun CollectionListScreen(
     if (showAboutDialog) {
         AboutDialog(onDismiss = { showAboutDialog = false })
     }
+
+    if (showImagePathDialog && selectedId != null) {
+        ImagePathDialog(
+            currentPath  = imageBasePath,
+            onConfirm    = { path: String? ->
+                viewModel.setImageBasePath(selectedId!!, path)
+                showImagePathDialog = false
+            },
+            onPickFolder = {
+                showImagePathDialog = false
+                imagePathLauncher.launch(null)
+            },
+            onDismiss    = { showImagePathDialog = false }
+        )
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -285,7 +331,9 @@ fun AirtableGrid(
     onColumnWidthChange: (String, Dp) -> Unit,
     onFreezeField: (String) -> Unit,
     onEntryClick: (TellicoEntry) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    collectionId: Long = 0L,
+    imageBasePath: String? = null
 ) {
     val frozen     = fields.filter { it.name == frozenField }
     val scrollable = fields.filter { it.name != frozenField }
@@ -344,13 +392,15 @@ fun AirtableGrid(
                         val entry = entries[index]
                         if (entry != null) {
                             AirtableRow(
-                                entry        = entry,
-                                frozen       = frozen,
-                                scrollable   = scrollable,
-                                columnWidths = columnWidths,
-                                hScroll      = hScroll,
-                                rowIndex     = index,
-                                onClick      = { onEntryClick(entry) }
+                                entry         = entry,
+                                frozen        = frozen,
+                                scrollable    = scrollable,
+                                columnWidths  = columnWidths,
+                                hScroll       = hScroll,
+                                rowIndex      = index,
+                                onClick       = { onEntryClick(entry) },
+                                collectionId  = collectionId,
+                                imageBasePath = imageBasePath
                             )
                         } else {
                             SkeletonRow(fields = fields, columnWidths = columnWidths)
@@ -379,7 +429,9 @@ fun AirtableRow(
     hScroll: ScrollState,
     rowIndex: Int,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    collectionId: Long = 0L,
+    imageBasePath: String? = null
 ) {
     val bgColor = if (rowIndex % 2 == 0) MaterialTheme.colorScheme.surface
                   else TellicoColors.RowAlternate
@@ -409,14 +461,26 @@ fun AirtableRow(
 
         // Colonnes gelées
         frozen.forEach { field ->
-            CellValue(entry = entry, field = field, width = columnWidths[field.name] ?: 160.dp)
+            CellValue(
+                entry         = entry,
+                field         = field,
+                width         = columnWidths[field.name] ?: 160.dp,
+                collectionId  = collectionId,
+                imageBasePath = imageBasePath
+            )
             VerticalDivider()
         }
 
         // Colonnes scrollables
         Row(Modifier.horizontalScroll(hScroll)) {
             scrollable.forEach { field ->
-                CellValue(entry = entry, field = field, width = columnWidths[field.name] ?: 160.dp)
+                CellValue(
+                    entry         = entry,
+                    field         = field,
+                    width         = columnWidths[field.name] ?: 160.dp,
+                    collectionId  = collectionId,
+                    imageBasePath = imageBasePath
+                )
                 VerticalDivider()
             }
         }

@@ -90,9 +90,10 @@ fun EntryDetailScreen(
                 }
                 is EntryDetailViewModel.DetailState.Success -> {
                     EntryDetailContent(
-                        entry        = s.entry,
-                        fields       = s.fields,
-                        collectionId = s.collectionId
+                        entry         = s.entry,
+                        fields        = s.fields,
+                        collectionId  = s.collectionId,
+                        imageBasePath = s.imageBasePath
                     )
                 }
             }
@@ -104,7 +105,8 @@ fun EntryDetailScreen(
 fun EntryDetailContent(
     entry: TellicoEntry,
     fields: List<TellicoField>,
-    collectionId: Long = 0L
+    collectionId: Long = 0L,
+    imageBasePath: String? = null
 ) {
     // Grouper les champs par catégorie (comme dans Tellico Desktop)
     val fieldsByCategory = fields.groupBy { it.category }
@@ -136,9 +138,11 @@ fun EntryDetailContent(
                 // Couverture / image principale
                 if (imageId.isNotEmpty()) {
                     TellicoImage(
-                        imageId      = imageId,
-                        collectionId = collectionId,
-                        modifier     = Modifier
+                        imageId       = imageId,
+                        collectionId  = collectionId,
+                        imageBasePath = imageBasePath,
+                        contentScale  = ContentScale.Crop,
+                        modifier      = Modifier
                             .width(100.dp)
                             .height(140.dp)
                             .clip(RoundedCornerShape(8.dp))

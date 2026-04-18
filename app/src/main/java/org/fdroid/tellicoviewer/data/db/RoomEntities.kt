@@ -32,7 +32,13 @@ data class CollectionEntity(
     val importedAt: Long = System.currentTimeMillis(),
     val sourceModifiedAt: Long = 0L,
     val entryCount: Int = 0,
-    val fileHash: String = ""
+    val fileHash: String = "",
+    /**
+     * Chemin absolu du répertoire contenant les images externes.
+     * Ex: /storage/emulated/0/Download/Livres_files
+     * Null si les images sont embarquées dans le .tc ou absentes.
+     */
+    val imageBasePath: String? = null
 )
 
 @Entity(
@@ -117,5 +123,6 @@ data class ImageEntity(
 
 data class CollectionWithFieldCount(
     val id: Long, val title: String, val type: String,
-    val entryCount: Int, val fieldCount: Int, val importedAt: Long
+    val entryCount: Int, val fieldCount: Int, val importedAt: Long,
+    val imageBasePath: String? = null
 )

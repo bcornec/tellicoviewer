@@ -53,7 +53,8 @@ object DatabaseModule {
             TellicoDatabase::class.java,
             TellicoDatabase.DATABASE_NAME
         )
-        .fallbackToDestructiveMigration()  // TODO: remplacer par des Migrations en prod
+        .addMigrations(TellicoDatabase.MIGRATION_1_2)
+        .fallbackToDestructiveMigration()  // filet de sécurité si migration inconnue
         .build()
 
     @Provides @Singleton

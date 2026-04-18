@@ -29,7 +29,7 @@ interface CollectionDao {
 
     @Query("""
         SELECT c.id, c.title, c.type, c.entryCount,
-               COUNT(f.id) AS fieldCount, c.importedAt
+               COUNT(f.id) AS fieldCount, c.importedAt, c.imageBasePath
         FROM collections c
         LEFT JOIN fields f ON f.collectionId = c.id
         GROUP BY c.id
@@ -39,6 +39,12 @@ interface CollectionDao {
 
     @Query("SELECT * FROM collections WHERE id = :id")
     suspend fun getById(id: Long): CollectionEntity?
+
+    @Query("SELECT imageBasePath FROM collections WHERE id = :id")
+    fun observeImageBasePath(id: Long): kotlinx.coroutines.flow.Flow<String?>
+
+    @Query("UPDATE collections SET imageBasePath = :path WHERE id = :id")
+    suspend fun updateImageBasePath(id: Long, path: String?)
 
     @Query("SELECT * FROM collections WHERE sourceFile = :path")
     suspend fun getBySourceFile(path: String): CollectionEntity?

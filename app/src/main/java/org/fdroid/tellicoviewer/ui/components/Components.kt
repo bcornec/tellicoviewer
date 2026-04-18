@@ -8,6 +8,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.BrokenImage
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -23,6 +24,7 @@ import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import kotlinx.coroutines.launch
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.runtime.setValue
 import org.fdroid.tellicoviewer.R
 import org.fdroid.tellicoviewer.data.db.CollectionWithFieldCount
 import org.fdroid.tellicoviewer.data.model.*
@@ -46,6 +48,7 @@ fun TellicoTopBar(
     onSyncClick: () -> Unit,
     onConfigClick: () -> Unit = {},
     onAboutClick: () -> Unit = {},
+    onImagePathClick: () -> Unit = {},
     onMenuClick: () -> Unit,
     hasFilter: Boolean,
     modifier: Modifier = Modifier
@@ -99,6 +102,9 @@ fun TellicoTopBar(
             }
             IconButton(onClick = onConfigClick) {
                 Icon(Icons.Default.Settings, contentDescription = stringResource(R.string.field_config_title))
+            }
+            IconButton(onClick = onImagePathClick) {
+                Icon(Icons.Default.FolderOpen, contentDescription = stringResource(R.string.image_path_title))
             }
             IconButton(onClick = onSyncClick) {
                 Icon(Icons.Default.Sync, stringResource(R.string.sync))
@@ -436,19 +442,57 @@ fun RatingStars(rating: Float, maxRating: Int = 5, size: Dp = 16.dp) {
 }
 
 /**
- * Composant image Tellico : charge depuis la BDD Room via un ImageFetcher custom.
- * La clé "tellico://<collectionId>/<imageId>" est interceptée par TellicoImageFetcher.
+ * Composant image Tellico unifié.
+ *
+ * Choisit automatiquement la source selon la disponibilité :
+ * 1. Si imageBasePath != null → image externe sur filesystem (tellicofile://)
+ * 2. Sinon → image embarquée dans Room (tellico://)
+ *
+ * @param imageId      Nom du fichier image (ex: "abc123.jpeg")
+ * @param collectionId ID de la collection (pour Room)
+ * @param imageBasePath Chemin absolu du répertoire _files externe, ou null
  */
 @Composable
 fun TellicoImage(
     imageId: String,
     modifier: Modifier = Modifier,
-    collectionId: Long = 0L
+    collectionId: Long = 0L,
+    imageBasePath: String? = null,
+    contentScale: androidx.compose.ui.layout.ContentScale =
+        androidx.compose.ui.layout.ContentScale.Fit
 ) {
-    AsyncImage(
-        model             = "tellico://$collectionId/$imageId",
+    if (imageId.isBlank()) return
+
+    val model = if (imageBasePath != null) {
+        // Image externe : tellicofile:///chemin/absolu/vers/_files/imageId
+        "tellicofile://$imageBasePath/$imageId"
+    } else {
+        // Image embarquée dans Room
+        "tellico://$collectionId/$imageId"
+    }
+
+    // Log pour debug
+    android.util.Log.d("TellicoImage", "model=$model basePath=$imageBasePath")
+
+    // SubcomposeAsyncImage permet d'utiliser des Composables dans les slots error/loading
+    coil.compose.SubcomposeAsyncImage(
+        model              = model,
         contentDescription = null,
-        modifier          = modifier
+        contentScale       = contentScale,
+        modifier           = modifier,
+        error = {
+            androidx.compose.foundation.layout.Box(
+                Modifier.fillMaxSize(),
+                contentAlignment = androidx.compose.ui.Alignment.Center
+            ) {
+                Icon(
+                    imageVector        = Icons.Default.BrokenImage,
+                    contentDescription = null,
+                    tint               = MaterialTheme.colorScheme.outline,
+                    modifier           = Modifier.size(16.dp)
+                )
+            }
+        }
     )
 }
 
@@ -461,7 +505,9 @@ fun CellValue(
     entry: org.fdroid.tellicoviewer.data.model.TellicoEntry,
     field: org.fdroid.tellicoviewer.data.model.TellicoField,
     width: androidx.compose.ui.unit.Dp,
-    modifier: androidx.compose.ui.Modifier = androidx.compose.ui.Modifier
+    modifier: androidx.compose.ui.Modifier = androidx.compose.ui.Modifier,
+    collectionId: Long = 0L,
+    imageBasePath: String? = null
 ) {
     val value = entry.getValue(field.name)
     Box(
@@ -488,9 +534,12 @@ fun CellValue(
             org.fdroid.tellicoviewer.data.model.FieldType.IMAGE -> {
                 if (value.isNotEmpty()) {
                     TellicoImage(
-                        imageId  = value,
-                        modifier = androidx.compose.ui.Modifier
-                            .size(32.dp)
+                        imageId       = value,
+                        collectionId  = collectionId,
+                        imageBasePath = imageBasePath,
+                        contentScale  = androidx.compose.ui.layout.ContentScale.Crop,
+                        modifier      = androidx.compose.ui.Modifier
+                            .size(48.dp)
                             .clip(androidx.compose.foundation.shape.RoundedCornerShape(4.dp))
                     )
                 }
@@ -592,6 +641,59 @@ fun AboutDialog(onDismiss: () -> Unit) {
         },
         confirmButton = {
             TextButton(onClick = onDismiss) { Text("OK") }
+        }
+    )
+}
+
+
+// ---------------------------------------------------------------------------
+// Dialog de configuration du répertoire d'images
+// ---------------------------------------------------------------------------
+
+@Composable
+fun ImagePathDialog(
+    currentPath: String?,
+    onConfirm: (String?) -> Unit,
+    onPickFolder: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    var text by remember { mutableStateOf(currentPath ?: "") }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        icon  = { Icon(Icons.Default.FolderOpen, null, tint = MaterialTheme.colorScheme.primary) },
+        title = { Text(stringResource(R.string.image_path_title)) },
+        text  = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    stringResource(R.string.image_path_description),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                TextField(
+                    value         = text,
+                    onValueChange = { text = it },
+                    label         = { Text(stringResource(R.string.image_path_hint)) },
+                    singleLine    = true,
+                    modifier      = Modifier.fillMaxWidth()
+                )
+                OutlinedButton(
+                    onClick  = onPickFolder,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(Icons.Default.FolderOpen, null, Modifier.size(16.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text(stringResource(R.string.image_path_pick))
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { onConfirm(text.ifBlank { null }) }) {
+                Text(stringResource(R.string.field_config_save))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Annuler") }
         }
     )
 }

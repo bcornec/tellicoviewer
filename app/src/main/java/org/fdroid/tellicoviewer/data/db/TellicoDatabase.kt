@@ -3,6 +3,8 @@ package org.fdroid.tellicoviewer.data.db
 import androidx.room.Database
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 
 /**
  * Classe principale de la base de données Room.
@@ -25,7 +27,7 @@ import androidx.room.TypeConverters
         EntryFtsEntity::class,
         ImageEntity::class
     ],
-    version = 1,
+    version = 2,
     exportSchema = true   // exporte le schéma JSON pour versionner les migrations
 )
 @TypeConverters(Converters::class)
@@ -38,5 +40,17 @@ abstract class TellicoDatabase : RoomDatabase() {
 
     companion object {
         const val DATABASE_NAME = "tellico_viewer.db"
+
+        /**
+         * Migration v1→v2 : ajout de imageBasePath dans la table collections.
+         * ALTER TABLE est la façon SQLite d'ajouter une colonne sans recréer la table.
+         */
+        val MIGRATION_1_2 = object : Migration(1, 2) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "ALTER TABLE collections ADD COLUMN imageBasePath TEXT"
+                )
+            }
+        }
     }
 }

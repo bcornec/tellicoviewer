@@ -4,7 +4,8 @@
   Fichier de déclaration de l'application : équivalent du fichier spec RPM/deb.
   Déclare les permissions, activités, services et providers de l'application.
 -->
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <!-- Permissions réseau pour la synchronisation Wi-Fi avec le PC -->
     <uses-permission android:name="android.permission.INTERNET" />
@@ -14,6 +15,9 @@
     <!-- Accès aux fichiers partagés (pour ouvrir un .tc depuis le gestionnaire de fichiers) -->
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
         android:maxSdkVersion="32" />
+    <!-- Android 10+ : accès complet au stockage externe (images dans _files/) -->
+    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE"
+        tools:ignore="ScopedStorage" />
     <!-- Android 13+ : permission granulaire -->
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
 

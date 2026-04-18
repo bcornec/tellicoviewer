@@ -1,39 +1,44 @@
 package org.fdroid.tellicoviewer
 
 import android.app.Application
+import android.content.Context
 import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.Configuration
+import coil.ImageLoader
+import coil.ImageLoaderFactory
 import dagger.hilt.android.HiltAndroidApp
+import org.fdroid.tellicoviewer.util.TellicoImageLoader
 import javax.inject.Inject
 
 /**
  * Classe Application : point d'entrée du processus Android.
- * Analogie : équivalent du main() en C, mais pour le cycle de vie global de l'app.
  *
- * @HiltAndroidApp déclenche la génération du code d'injection de dépendances par Hilt.
- * C'est comme générer automatiquement tous les constructeurs et l'initialisation
- * des singletons au démarrage.
- *
- * Implémente [Configuration.Provider] pour intégrer Hilt avec WorkManager
- * (les Workers ont besoin d'injection de dépendances).
+ * Implémente [ImageLoaderFactory] pour enregistrer notre ImageLoader Coil custom
+ * (avec le fetcher tellico:// et tellicofile://) comme loader global.
+ * Coil appelle newImageLoader() automatiquement pour configurer son singleton.
  */
 @HiltAndroidApp
-class TellicoViewerApp : Application(), Configuration.Provider {
+class TellicoViewerApp : Application(), Configuration.Provider, ImageLoaderFactory {
+
+    @Inject lateinit var workerFactory: HiltWorkerFactory
 
     /**
-     * HiltWorkerFactory est injecté automatiquement par Hilt.
-     * Il permet aux Workers (tâches de fond) de recevoir des dépendances injectées.
+     * Notre ImageLoader custom est injecté par Hilt.
+     * Il contient le TellicoImageFetcher qui gère les URIs tellico:// et tellicofile://.
+     * Hilt ne peut pas injecter dans Application avant onCreate(), donc on utilise
+     * lateinit et on retarde l'accès via newImageLoader().
      */
-    @Inject
-    lateinit var workerFactory: HiltWorkerFactory
+    @Inject lateinit var tellicoImageLoader: TellicoImageLoader
 
-    /**
-     * Configuration de WorkManager avec la factory Hilt.
-     * WorkManager est l'équivalent de systemd/cron pour les tâches Android.
-     */
     override val workManagerConfiguration: Configuration
         get() = Configuration.Builder()
             .setWorkerFactory(workerFactory)
             .setMinimumLoggingLevel(android.util.Log.INFO)
             .build()
+
+    /**
+     * Appelé par Coil pour obtenir l'ImageLoader singleton global.
+     * Toutes les AsyncImage() de l'app utiliseront automatiquement ce loader.
+     */
+    override fun newImageLoader(): ImageLoader = tellicoImageLoader.imageLoader
 }

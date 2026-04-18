@@ -1,6 +1,8 @@
 package org.fdroid.tellicoviewer.util
 
 import android.content.Context
+import android.net.Uri
+import android.util.Log
 import coil.ImageLoader
 import coil.decode.DataSource
 import coil.decode.ImageSource
@@ -10,78 +12,108 @@ import coil.fetch.SourceResult
 import coil.request.Options
 import dagger.hilt.android.qualifiers.ApplicationContext
 import okio.Buffer
+import okio.buffer
+import okio.source
 import org.fdroid.tellicoviewer.data.db.ImageDao
+import java.io.File
 import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Fetcher Coil personnalisé pour charger des images depuis la base Room/SQLite.
+ * Fetcher Coil gérant deux sources d'images Tellico.
  *
- * SCHÉMA D'URI : "tellico://<collectionId>/<imageId>"
- * Exemple      : "tellico://3/cover.jpg"
+ * IMPORTANT : Coil convertit automatiquement les String en android.net.Uri
+ * quand le model ressemble à une URI. Il faut donc utiliser Fetcher.Factory<Uri>
+ * (et non Factory<String>) pour intercepter nos URIs custom.
  *
- * Quand AsyncImage() reçoit une URI de ce format, Coil cherche un Fetcher.Factory
- * capable de la gérer. Notre factory répond si l'URI commence par "tellico://".
- * Le Fetcher lit alors les bytes depuis Room et les retourne à Coil en Buffer okio.
- *
- * Coil gère ensuite le décodage PNG/JPEG et le cache disque/mémoire automatiquement.
- *
- * Analogie : c'est comme un VFS handler pour un scheme URI custom.
- * Compatible Coil 2.6.x.
+ * Schemes supportés :
+ *   tellico://collectionId/imageId      → images embarquées dans Room
+ *   tellicofile:///chemin/absolu/img    → images externes sur le filesystem
  */
 class TellicoImageFetcher private constructor(
-    private val data: String,
+    private val uri: Uri,
     private val options: Options,
     private val imageDao: ImageDao
 ) : Fetcher {
 
-    override suspend fun fetch(): FetchResult? {
-        // Parser l'URI "tellico://collectionId/imageId"
-        val withoutScheme = data.removePrefix("tellico://")
-        val slashIdx = withoutScheme.indexOf('/')
-        if (slashIdx < 0) return null
+    override suspend fun fetch(): FetchResult? = when (uri.scheme) {
+        "tellico"     -> fetchFromRoom()
+        "tellicofile" -> fetchFromFile()
+        else          -> null
+    }
 
-        val collectionId = withoutScheme.substring(0, slashIdx).toLongOrNull() ?: return null
-        val imageId      = withoutScheme.substring(slashIdx + 1)
+    // -----------------------------------------------------------------------
+    // Images embarquées dans Room
+    // tellico://collectionId/imageId
+    // -----------------------------------------------------------------------
+    private suspend fun fetchFromRoom(): FetchResult? {
+        val collectionId = uri.host?.toLongOrNull() ?: return null
+        val imageId      = uri.path?.removePrefix("/") ?: return null
         if (imageId.isBlank()) return null
 
-        // Récupérer les bytes depuis Room (Dispatchers.IO via le ViewModel/coroutine Coil)
-        val imageEntity = imageDao.getImage(collectionId, imageId) ?: return null
-
-        // Envelopper les bytes dans un Buffer okio (format attendu par Coil 2.x)
+        Log.d("TellicoFetcher", "Room: collectionId=$collectionId imageId=$imageId")
+        val imageEntity = imageDao.getImage(collectionId, imageId) ?: run {
+            Log.w("TellicoFetcher", "Image non trouvée en base : $imageId")
+            return null
+        }
         val buffer = Buffer().write(imageEntity.data)
-
         return SourceResult(
             source     = ImageSource(buffer, options.context),
             mimeType   = imageEntity.mimeType,
-            dataSource = DataSource.DISK   // DISK = persisté localement (Room)
+            dataSource = DataSource.DISK
         )
     }
 
-    /**
-     * Factory : instancie un TellicoImageFetcher si l'URI correspond à "tellico://".
-     * Retourne null pour toutes les autres URI (http://, file://, etc.) → Coil
-     * essaie les autres factories enregistrées.
-     */
+    // -----------------------------------------------------------------------
+    // Images externes sur le filesystem
+    // tellicofile:///storage/emulated/0/Download/BD_files/abc.jpeg
+    // -----------------------------------------------------------------------
+    private fun fetchFromFile(): FetchResult? {
+        // Uri.path sur "tellicofile:///storage/emulated/0/Download/BD_files/abc.jpeg"
+        // retourne "/storage/emulated/0/Download/BD_files/abc.jpeg"
+        val filePath = uri.path ?: run {
+            Log.w("TellicoFetcher", "URI sans chemin : $uri")
+            return null
+        }
+        val file = File(filePath)
+        Log.d("TellicoFetcher", "File: path=$filePath exists=${file.exists()} canRead=${file.canRead()}")
+
+        if (!file.exists()) {
+            Log.w("TellicoFetcher", "Fichier introuvable : $filePath")
+            return null
+        }
+        if (!file.canRead()) {
+            Log.w("TellicoFetcher", "Fichier illisible (permission?) : $filePath")
+            return null
+        }
+
+        return SourceResult(
+            source     = ImageSource(file.source().buffer(), options.context),
+            mimeType   = mimeTypeForFile(file.name),
+            dataSource = DataSource.DISK
+        )
+    }
+
+    private fun mimeTypeForFile(name: String): String = when {
+        name.endsWith(".jpg",  true) || name.endsWith(".jpeg", true) -> "image/jpeg"
+        name.endsWith(".png",  true)  -> "image/png"
+        name.endsWith(".webp", true)  -> "image/webp"
+        else -> "image/*"
+    }
+
+    // Factory<Uri> — Coil convertit les String-URIs en Uri avant de chercher un fetcher
     class Factory @Inject constructor(
         private val imageDao: ImageDao
-    ) : Fetcher.Factory<String> {
-
-        override fun create(data: String, options: Options, imageLoader: ImageLoader): Fetcher? {
-            if (!data.startsWith("tellico://")) return null
+    ) : Fetcher.Factory<Uri> {
+        override fun create(data: Uri, options: Options, imageLoader: ImageLoader): Fetcher? {
+            val scheme = data.scheme ?: return null
+            if (scheme != "tellico" && scheme != "tellicofile") return null
+            Log.d("TellicoFetcher", "Factory.create: scheme=$scheme uri=$data")
             return TellicoImageFetcher(data, options, imageDao)
         }
     }
 }
 
-/**
- * Fournit un ImageLoader Coil configuré avec le fetcher Tellico.
- * Injecté comme singleton par Hilt dans l'Application.
- *
- * Pour l'utiliser globalement, configurer dans TellicoViewerApp :
- *   LocalImageLoader.provides(tellicoImageLoader.imageLoader)
- * ou passer directement à AsyncImage(imageLoader = ...).
- */
 @Singleton
 class TellicoImageLoader @Inject constructor(
     @ApplicationContext private val context: Context,
@@ -89,10 +121,8 @@ class TellicoImageLoader @Inject constructor(
 ) {
     val imageLoader: ImageLoader by lazy {
         ImageLoader.Builder(context)
-            .components {
-                add(fetcherFactory)   // Enregistre notre handler "tellico://"
-            }
-            .crossfade(true)          // Transition douce entre placeholder et image
+            .components { add(fetcherFactory) }
+            .crossfade(true)
             .build()
     }
 }
