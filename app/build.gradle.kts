@@ -1,5 +1,6 @@
 // app/build.gradle.kts
 // Configuration du module applicatif principal.
+import java.io.File
 // Équivalent d'un Makefile pour un projet C : décrit comment compiler, quelles libs lier.
 
 plugins {
@@ -19,8 +20,8 @@ android {
         applicationId         = "org.fdroid.tellicoviewer"
         minSdk                = 26   // Android 8 (2017) : bon équilibre couverture/modernité
         targetSdk             = 34
-        versionCode           = 17
-        versionName           = "1.1.13"
+        versionCode           = 20
+        versionName           = "1.1.16"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -28,6 +29,31 @@ android {
         ksp {
             arg("room.schemaLocation", "$projectDir/schemas")
             arg("room.incremental",    "true")
+        }
+    }
+
+    // Signature du release — paramètres passés via :
+    // 1. Variables d'environnement lues dans local.properties (développement local)
+    // 2. Propriétés Gradle -P (CI/CD, script de build)
+    // Ne jamais committer la keystore ni les mots de passe dans git.
+    signingConfigs {
+        create("release") {
+            // Lire depuis les propriétés Gradle ou les variables d'environnement
+            val keystoreFile   = findProperty("KEYSTORE_FILE")?.toString()
+                ?: System.getenv("KEYSTORE_FILE")
+            val keystorePass   = findProperty("KEYSTORE_PASSWORD")?.toString()
+                ?: System.getenv("KEYSTORE_PASSWORD")
+            val keyAlias       = findProperty("KEY_ALIAS")?.toString()
+                ?: System.getenv("KEY_ALIAS")
+            val keyPass        = findProperty("KEY_PASSWORD")?.toString()
+                ?: System.getenv("KEY_PASSWORD")
+
+            if (keystoreFile != null && File(keystoreFile).exists()) {
+                storeFile     = File(keystoreFile)
+                storePassword = keystorePass ?: ""
+                this.keyAlias      = keyAlias ?: "tellicoviewer"
+                keyPassword   = keyPass ?: keystorePass ?: ""
+            }
         }
     }
 
@@ -39,6 +65,11 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            // Appliquer le signingConfig si la keystore est disponible
+            val releaseConfig = signingConfigs.findByName("release")
+            if (releaseConfig?.storeFile != null) {
+                signingConfig = releaseConfig
+            }
         }
         debug {
             isDebuggable      = true
