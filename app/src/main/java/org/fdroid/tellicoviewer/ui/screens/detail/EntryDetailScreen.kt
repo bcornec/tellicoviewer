@@ -25,21 +25,21 @@ import org.fdroid.tellicoviewer.ui.components.RatingStars
 import org.fdroid.tellicoviewer.ui.components.TellicoImage
 
 /**
- * Écran de détail d'un article de collection.
+ * Collection entry detail screen.
  *
  * LAYOUT :
  * ┌──────────────────────────────────────────────────┐
- * │ ← Retour          Titre de l'article             │
+ * │ ← Back            Entry title                  │
  * ├──────────────────────────────────────────────────┤
- * │  [Image de couverture]   Titre                   │
- * │                          Auteur                  │
- * │                          Année ★★★★☆             │
+ * │  [Cover image]           Title                 │
+ * │                          Author                │
+ * │                          Year ★★★★☆            │
  * ├──────────────────────────────────────────────────┤
  * │  Catégorie "Général"                             │
- * │    Champ 1 : valeur                              │
- * │    Champ 2 : valeur longue...                    │
+ * │    Field 1 : value                             │
+ * │    Field 2 : long value…                       │
  * │  Catégorie "Publication"                         │
- * │    Champ 3 : valeur                              │
+ * │    Field 3 : value                             │
  * └──────────────────────────────────────────────────┘
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -109,7 +109,7 @@ fun EntryDetailContent(
     collectionId: Long = 0L,
     imageBasePath: String? = null
 ) {
-    // Grouper les champs par catégorie (comme dans Tellico Desktop)
+    // Group fields by category (as in Tellico Desktop).
     val fieldsByCategory = fields.groupBy { it.category }
     val scrollState = rememberScrollState()
 
@@ -119,7 +119,7 @@ fun EntryDetailContent(
             .verticalScroll(scrollState)
     ) {
         // ----------------------------------------------------------------
-        // Hero header : image + champs principaux côte à côte
+        // Hero header: image + main fields side by side.
         // ----------------------------------------------------------------
         val imageField = fields.firstOrNull { it.type == FieldType.IMAGE }
         val imageId    = imageField?.let { entry.getValue(it.name) } ?: entry.imageIds.firstOrNull() ?: ""
@@ -136,7 +136,7 @@ fun EntryDetailContent(
                 modifier = Modifier.padding(16.dp),
                 verticalAlignment = Alignment.Top
             ) {
-                // Couverture / image principale
+                // Cover / main image.
                 if (imageId.isNotEmpty()) {
                     TellicoImage(
                         imageId       = imageId,
@@ -175,7 +175,7 @@ fun EntryDetailContent(
                         Spacer(Modifier.height(8.dp))
                         RatingStars(rating = rating, size = 20.dp)
                     }
-                    // Année
+                    // Year.
                     val year = entry.getValue("year").ifEmpty { entry.getValue("pub_year") }
                     if (year.isNotEmpty()) {
                         Spacer(Modifier.height(4.dp))
@@ -192,10 +192,10 @@ fun EntryDetailContent(
         Spacer(Modifier.height(8.dp))
 
         // ----------------------------------------------------------------
-        // Sections par catégorie
+        // Sections by category.
         // ----------------------------------------------------------------
         fieldsByCategory.forEach { (category, catFields) ->
-            // Ignorer les champs déjà affichés dans le header
+            // Skip fields already shown in the header.
             val displayFields = catFields.filter { field ->
                 field.name !in listOf("title", "author", "artist", "director", "year",
                     "pub_year", "rating") && field.type != FieldType.IMAGE
@@ -242,7 +242,7 @@ fun FieldDetailRow(
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 6.dp)
     ) {
-        // Label du champ
+        // Field label.
         Row(verticalAlignment = Alignment.CenterVertically) {
             FieldTypeIcon(field.type)
             Spacer(Modifier.width(4.dp))
@@ -254,7 +254,7 @@ fun FieldDetailRow(
         }
         Spacer(Modifier.height(2.dp))
 
-        // Valeur selon le type
+        // Value rendered by type.
         when (field.type) {
             FieldType.RATING -> {
                 RatingStars(rating = value.toFloatOrNull() ?: 0f)
@@ -278,7 +278,7 @@ fun FieldDetailRow(
                 )
             }
             FieldType.TABLE, FieldType.TABLE2 -> {
-                // Afficher comme liste de chips
+                // Render as a chip list.
                 val items = entry.getList(field.name)
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     items.forEach { item ->

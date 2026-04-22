@@ -26,20 +26,20 @@ import javax.inject.Singleton
  * Repository : couche d'accès aux données unifiée.
  *
  * RÔLE DU REPOSITORY (Clean Architecture) :
- * - Abstrait la source des données (BDD locale, réseau, fichier)
- * - Les ViewModels ne savent pas si les données viennent de SQLite ou du réseau
- * - Transforme les entités DB en modèles de domaine
+ * - Abstracts the data source (local DB, network, file)
+ * - ViewModels do not know whether data comes from SQLite or the network
+ * - Transforms DB entities into domain models
  *
- * Analogie Unix : le Repository est comme un VFS (Virtual File System).
- * Les appelants font open("fichier") sans savoir si c'est ext4, NFS ou tmpfs.
+ * Unix analogy: the Repository is like a VFS (Virtual File System).
+ * Callers call open("file") without knowing whether it is ext4, NFS or tmpfs.
  *
- * PIPELINE DE DONNÉES (import) :
- * URI fichier .tc
+ * DATA PIPELINE (import):
+ *   .tc file URI
  *   → ContentResolver.openInputStream()
- *   → TellicoParser.parse()        (décompression ZIP + parsing XML)
- *   → insertCollectionToDb()       (sérialisation JSON + batch insert Room)
- *   → PagingSource                 (lecture paginée depuis Room)
- *   → ViewModel                    (état UI)
+ *   → TellicoParser.parse()        (ZIP decompression + XML parsing)
+ *   → insertCollectionToDb()       (JSON serialisation + Room batch insert)
+ *   → PagingSource                 (paginated read from Room)
+ *   → ViewModel                    (UI state)
  *   → Compose LazyColumn/Grid      (affichage)
  */
 @Singleton
@@ -51,27 +51,27 @@ class TellicoRepository @Inject constructor(
 ) {
     companion object {
         private const val TAG = "TellicoRepository"
-        private const val PAGE_SIZE = 30          // articles par page Paging3
+        private const val PAGE_SIZE = 30          // entries per Paging3 page
         private const val PREFETCH_DISTANCE = 60  // articles préchargés en avance
         private const val BATCH_SIZE = 500        // articles insérés par transaction SQL
     }
 
     // ---------------------------------------------------------------------------
-    // Observation des collections
+    // Observe collections.
     // ---------------------------------------------------------------------------
 
-    /** Flow observable de toutes les collections (mise à jour automatique) */
+    /** Observable Flow of all collections (auto-updates on DB change). */
     fun observeCollections(): Flow<List<CollectionWithFieldCount>> =
         db.collectionDao().observeCollections()
 
-    /** Flow du schéma (champs) d'une collection */
+    /** Flow of the schema (fields) for a collection. */
     suspend fun getImageBasePath(collectionId: Long): String? =
         db.collectionDao().getById(collectionId)?.imageBasePath
 
     /**
-     * Flow réactif sur imageBasePath d'une collection.
-     * Émet une nouvelle valeur dès que la collection est mise à jour en base
-     * (par exemple après un import qui recalcule imageBasePath).
+     * Reactive Flow on a collection's imageBasePath.
+     * Emits a new value whenever the collection is updated in the database
+     * (e.g. after an import that recomputes imageBasePath).
      */
     fun observeImageBasePath(collectionId: Long): kotlinx.coroutines.flow.Flow<String?> =
         db.collectionDao().observeImageBasePath(collectionId)
@@ -85,19 +85,19 @@ class TellicoRepository @Inject constructor(
             .map { entities -> entities.map { it.toDomain() } }
 
     // ---------------------------------------------------------------------------
-    // Import d'un fichier .tc
+    // .tc file import.
     // ---------------------------------------------------------------------------
 
     /**
-     * Importe un fichier .tc depuis une URI Android (SAF - Storage Access Framework).
+     * Imports a .tc file from an Android URI (SAF — Storage Access Framework).
      *
-     * SAF = mécanisme Android pour accéder aux fichiers de manière sécurisée,
-     * qu'ils soient sur le stockage local, une carte SD ou Google Drive.
-     * Équivalent : un fd ouvert par le kernel, passé à notre processus.
+     * SAF = Android mechanism for secure file access,
+     * whether on local storage, an SD card or Google Drive.
+     * Equivalent: an fd opened by the kernel and passed to our process.
      *
-     * @param uri URI du fichier .tc (obtenue via Intent ou file picker)
-     * @param onProgress Callback de progression pour l'UI
-     * @return ID de la collection en base, ou null en cas d'erreur
+     * @param uri URI of the .tc file (obtained via Intent or file picker)
+     * @param onProgress Progress callback for the UI
+     * @return Collection ID in the database, or null on error
      */
     suspend fun importFromUri(
         uri: Uri,
@@ -111,8 +111,8 @@ class TellicoRepository @Inject constructor(
         withContext(Dispatchers.IO) {
             onProgress(5, "Vérification du fichier...")
 
-            // Passe 1 : calculer le hash SHA-256 du fichier ZIP (sans décompresser)
-            // On lit le fichier une première fois en streaming pour le hash.
+            // Pass 1: compute SHA-256 hash of the ZIP file (no decompression).
+            // Stream the raw bytes once for the hash.
             val hash = context.contentResolver.openInputStream(uri)
                 ?.use { sha256Stream(it) }
                 ?: throw IllegalArgumentException("Impossible d'ouvrir le fichier : $uri")
@@ -125,17 +125,17 @@ class TellicoRepository @Inject constructor(
 
             onProgress(8, "Parsing du fichier...")
 
-            // Passe 2 : parser le fichier en streaming (sans tout charger en RAM)
+            // Pass 2: parse the file via streaming (no full in-memory load).
             val result = context.contentResolver.openInputStream(uri)
                 ?.use { parser.parse(it, onProgress) }
                 ?: throw IllegalArgumentException("Impossible d'ouvrir le fichier : $uri")
 
             val collection = result.collection
 
-            // Résoudre le répertoire d'images externes (ex: Livres_files/)
+            // Resolve the external images directory (e.g. Livres_files/).
             val imageBasePath = resolveImageBasePath(uri, collection.title)
 
-            // Insérer en base Room
+            // Insert into Room database.
             val collectionId = insertCollectionToDb(
                 collection    = collection,
                 images        = result.images,
@@ -155,12 +155,12 @@ class TellicoRepository @Inject constructor(
     // ---------------------------------------------------------------------------
 
     /**
-     * Insère une collection complète dans Room en plusieurs transactions.
+     * Inserts a complete collection into Room across multiple transactions.
      *
-     * On découpe en lots de BATCH_SIZE pour :
-     * 1. Éviter les transactions trop longues (lock SQLite)
+     * Batching into BATCH_SIZE chunks to:
+     * 1. Avoid overly long transactions (SQLite lock)
      * 2. Permettre la mise à jour de progression
-     * 3. Limiter la consommation mémoire (sérialisation JSON des 500 articles à la fois)
+     * 3. Limit memory usage (JSON serialisation of 500 entries at a time)
      */
     private suspend fun insertCollectionToDb(
         collection: TellicoCollection,
@@ -170,7 +170,7 @@ class TellicoRepository @Inject constructor(
         imageBasePath: String? = null,
         onProgress: suspend (Int, String) -> Unit
     ): Long {
-        // 1. Insérer les métadonnées de la collection
+        // 1. Insert collection metadata.
         val collectionEntity = CollectionEntity(
             tellicoId       = collection.id,
             title           = collection.title,
@@ -190,7 +190,7 @@ class TellicoRepository @Inject constructor(
 
         onProgress(40, "Sauvegarde de ${collection.entries.size} articles...")
 
-        // 3. Insérer les articles par lots
+        // 3. Insert entries in batches.
         val json = Json { ignoreUnknownKeys = true }
         collection.entries.chunked(BATCH_SIZE).forEachIndexed { batchIndex, batch ->
             val entryEntities = batch.map { entry ->
@@ -211,7 +211,7 @@ class TellicoRepository @Inject constructor(
 
         onProgress(87, "Sauvegarde des images...")
 
-        // 4. Insérer les images par lots de 20 (les BLOB peuvent être volumineux)
+        // 4. Insert images in batches of 20 (BLOBs can be large).
         images.entries.chunked(20).forEach { chunk ->
             val imageEntities = chunk.map { (imageId, bytes) ->
                 ImageEntity(
@@ -228,20 +228,20 @@ class TellicoRepository @Inject constructor(
     }
 
     // ---------------------------------------------------------------------------
-    // Lecture paginée (Paging 3)
+    // Paginated read (Paging 3).
     // ---------------------------------------------------------------------------
 
     /**
-     * Retourne un Flow<PagingData<TellicoEntry>> pour l'affichage en liste.
+     * Returns a Flow<PagingData<TellicoEntry>> for list display.
      *
-     * PagingData est le conteneur de données paginées de Paging 3.
-     * Il se connecte directement à LazyColumn/LazyVerticalGrid dans Compose.
+     * PagingData is the Paging 3 paginated data container.
+     * It connects directly to LazyColumn/LazyVerticalGrid in Compose.
      *
-     * @param collectionId ID de la collection à afficher
-     * @param sortField    Nom du champ pour le tri (null = ordre d'import)
-     * @param searchQuery  Requête de recherche (null = tout afficher)
-     * @param filterField  Champ sur lequel filtrer
-     * @param filterValue  Valeur du filtre
+     * @param collectionId ID of the collection to display
+     * @param sortField    Field name for sorting (null = import order)
+     * @param searchQuery  Search query (null = show all)
+     * @param filterField  Field to filter on
+     * @param filterValue  Filter value
      */
     fun getEntriesPaged(
         collectionId: Long,
@@ -253,7 +253,7 @@ class TellicoRepository @Inject constructor(
         val pagingConfig = PagingConfig(
             pageSize         = PAGE_SIZE,
             prefetchDistance = PREFETCH_DISTANCE,
-            enablePlaceholders = true   // permet de montrer des "skeleton" en attendant
+            enablePlaceholders = true   // allows showing skeleton placeholders while loading
         )
 
         return Pager(config = pagingConfig) {
@@ -263,10 +263,10 @@ class TellicoRepository @Inject constructor(
                     val ftsQuery = "${searchQuery.trim()}*"  // prefix match FTS
                     db.entryDao().searchFtsPaged(collectionId, ftsQuery)
                 }
-                // Filtre par champ
+                // Field filter.
                 !filterField.isNullOrBlank() && !filterValue.isNullOrBlank() ->
                     db.entryDao().filterByField(collectionId, filterField, filterValue)
-                // Tri par titre (défaut)
+                // Sort by title (default).
                 else ->
                     db.entryDao().pagingSourceByTitle(collectionId)
             }
@@ -276,12 +276,12 @@ class TellicoRepository @Inject constructor(
     }
 
     // ---------------------------------------------------------------------------
-    // Récupération d'un article et de ses images
+    // Fetch a single entry and its images.
     // ---------------------------------------------------------------------------
 
     /**
-     * Récupère un article par son tellicoId (l'id dans le fichier XML Tellico).
-     * C'est cet identifiant qui est passé dans la navigation.
+     * Fetches an entry by its tellicoId (the id from the Tellico XML file).
+     * This identifier is passed through navigation.
      */
     suspend fun getEntry(collectionId: Long, tellicoId: Long): TellicoEntry? =
         db.entryDao().getByTellicoId(collectionId, tellicoId.toInt())?.toDomain()
@@ -290,15 +290,15 @@ class TellicoRepository @Inject constructor(
         db.fieldDao().getFieldsForCollection(collectionId).map { it.toDomain() }
 
     /**
-     * Récupère une image depuis la BDD Room.
-     * Les données sont retournées en ByteArray pour être décodées par Coil.
+     * Fetches an image from the Room database.
+     * Data is returned as ByteArray to be decoded by Coil.
      */
     suspend fun getImage(collectionId: Long, imageId: String): ByteArray? =
         db.imageDao().getImage(collectionId, imageId)?.data
 
     /**
-     * Retourne les valeurs distinctes d'un champ (pour les filtres).
-     * Ex: toutes les années, tous les genres...
+     * Returns distinct values for a field (used by filters).
+     * E.g. all years, all genres…
      */
     suspend fun getDistinctValues(collectionId: Long, fieldName: String): List<String> =
         db.entryDao().getDistinctValues(collectionId, fieldName)
@@ -309,7 +309,7 @@ class TellicoRepository @Inject constructor(
 
     suspend fun deleteCollection(collectionId: Long) {
         db.collectionDao().deleteById(collectionId)
-        // Les champs, entrées et images sont supprimés en cascade (ForeignKey.CASCADE)
+        // Fields, entries and images are deleted in cascade (ForeignKey.CASCADE).
     }
 
     // ---------------------------------------------------------------------------
@@ -322,43 +322,43 @@ class TellicoRepository @Inject constructor(
     }
 
     /**
-     * Calcule le SHA-256 d'un InputStream en streaming (sans charger tout en RAM).
-     * Adapté aux gros fichiers comme Disques.tc (37 Mo décompressé).
+     * Computes SHA-256 of an InputStream via streaming (no full RAM load).
+     * Suitable for large files like Disques.tc (37 MB decompressed).
      */
     /**
-     * Résout le chemin absolu du répertoire d'images externes.
+     * Resolves the absolute path of the external images directory.
      *
      * Convention Tellico : répertoire = nom_fichier_sans_extension + "_files"
-     * au même niveau que le fichier .tc.
+     * at the same level as the .tc file.
      * Ex : Livres.tc → Livres_files/
      *
      * Stratégie (compatible scoped storage Android 10+) :
-     * 1. Obtenir le nom du fichier .tc via ContentResolver DISPLAY_NAME
-     * 2. Retirer l'extension → "Livres"
-     * 3. Chercher "Livres_files" dans les répertoires courants
+     * 1. Get the .tc filename via ContentResolver DISPLAY_NAME
+     * 2. Remove the extension → "Livres"
+     * 3. Search for "Livres_files" in common directories
      */
     private fun resolveImageBasePath(sourceUri: Uri, collectionTitle: String): String? {
         return try {
-            // Étape 1 : obtenir le nom du fichier depuis l'URI
-            // DISPLAY_NAME fonctionne même avec scoped storage (Android 10+)
+            // Step 1: get the filename from the URI.
+            // DISPLAY_NAME works even with scoped storage (Android 10+).
             val displayName = getDisplayName(sourceUri)
             Log.d(TAG, "displayName=$displayName, uri=$sourceUri")
 
-            // Construire les noms de répertoires candidats
+            // Build candidate directory names.
             val candidates = mutableListOf<String>()
 
             if (displayName != null) {
                 val baseName = displayName.substringBeforeLast('.')  // "Livres.tc" → "Livres"
                 candidates += baseName + "_files"
             }
-            // Fallback avec le titre Tellico (en cas où displayName indisponible)
+            // Fallback using the Tellico title (if displayName is unavailable).
             candidates += collectionTitle + "_files"
             candidates += collectionTitle.replace(" ", "_") + "_files"
 
-            // Étape 2 : chercher dans les répertoires courants
+            // Step 2: search in common directories.
             val searchDirs = mutableListOf<java.io.File>()
 
-            // Essayer d'obtenir le chemin réel du parent via MediaStore
+            // Try to get the real parent path via MediaStore.
             val realPath = tryGetRealPath(sourceUri)
             if (realPath != null) {
                 val parent = java.io.File(realPath).parentFile
@@ -366,9 +366,9 @@ class TellicoRepository @Inject constructor(
                 Log.d(TAG, "realPath=$realPath, parent=$parent")
             }
 
-            // Toujours chercher aussi dans Downloads (le cas le plus courant)
+            // Always also search in Downloads (the most common location).
             searchDirs += Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
-            // Et dans le stockage externe racine
+            // And in the external storage root.
             searchDirs += Environment.getExternalStorageDirectory()
 
             for (dir in searchDirs) {
@@ -391,8 +391,8 @@ class TellicoRepository @Inject constructor(
     }
 
     /**
-     * Obtient le nom d'affichage du fichier depuis son URI content://.
-     * Fonctionne même avec scoped storage (Android 10+).
+     * Gets the display name of the file from its content:// URI.
+     * Works even with scoped storage (Android 10+).
      */
     private fun getDisplayName(uri: Uri): String? {
         if (uri.scheme == "file") return java.io.File(uri.path ?: return null).name
@@ -414,8 +414,8 @@ class TellicoRepository @Inject constructor(
     }
 
     /**
-     * Tente d'obtenir le chemin absolu depuis un URI.
-     * Peut retourner null sur Android 10+ avec scoped storage.
+     * Attempts to get the absolute path from a URI.
+     * May return null on Android 10+ with scoped storage.
      */
     private fun tryGetRealPath(uri: Uri): String? {
         if (uri.scheme == "file") return uri.path
@@ -432,7 +432,7 @@ class TellicoRepository @Inject constructor(
                 authority.contains("downloads") -> {
                     val docId = android.provider.DocumentsContract.getDocumentId(uri)
                     if (docId.startsWith("raw:")) docId.removePrefix("raw:")
-                    else null  // msf: IDs ne donnent pas de chemin réel sur Android 10+
+                    else null  // msf: IDs do not provide a real path on Android 10+
                 }
                 else -> {
                     context.contentResolver.query(
@@ -453,7 +453,7 @@ class TellicoRepository @Inject constructor(
 
         private fun sha256Stream(input: java.io.InputStream): String {
         val digest = MessageDigest.getInstance("SHA-256")
-        val buffer = ByteArray(65536)  // 64 Ko par chunk
+        val buffer = ByteArray(65536)  // 64 KB per chunk
         var n = input.read(buffer)
         while (n > 0) {
             digest.update(buffer, 0, n)
@@ -471,7 +471,7 @@ class TellicoRepository @Inject constructor(
 }
 
 // ---------------------------------------------------------------------------
-// Extensions de mapping Entité DB <-> Modèle de domaine
+// DB Entity <-> Domain Model mapping extensions.
 // ---------------------------------------------------------------------------
 
 fun EntryEntity.toDomain(): TellicoEntry {

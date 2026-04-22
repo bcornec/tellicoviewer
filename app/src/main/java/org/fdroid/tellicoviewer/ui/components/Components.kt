@@ -35,7 +35,7 @@ import org.fdroid.tellicoviewer.ui.screens.list.ImportState
 import androidx.compose.ui.unit.sp
 
 // ---------------------------------------------------------------------------
-// Barre de titre / recherche
+// Title bar / search.
 // ---------------------------------------------------------------------------
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -45,10 +45,7 @@ fun TellicoTopBar(
     searchQuery: String,
     onSearchChange: (String) -> Unit,
     onFilterClick: () -> Unit,
-    onSyncClick: () -> Unit,
-    onConfigClick: () -> Unit = {},
-    onAboutClick: () -> Unit = {},
-    onImagePathClick: () -> Unit = {},
+    onPrefsClick: () -> Unit = {},
     onMenuClick: () -> Unit,
     hasFilter: Boolean,
     modifier: Modifier = Modifier
@@ -100,17 +97,8 @@ fun TellicoTopBar(
                     Icon(Icons.Default.FilterList, stringResource(R.string.filter))
                 }
             }
-            IconButton(onClick = onConfigClick) {
-                Icon(Icons.Default.Settings, contentDescription = stringResource(R.string.field_config_title))
-            }
-            IconButton(onClick = onImagePathClick) {
-                Icon(Icons.Default.FolderOpen, contentDescription = stringResource(R.string.image_path_title))
-            }
-            IconButton(onClick = onSyncClick) {
-                Icon(Icons.Default.Sync, stringResource(R.string.sync))
-            }
-            IconButton(onClick = onAboutClick) {
-                Icon(Icons.Default.Info, contentDescription = stringResource(R.string.about_title))
+            IconButton(onClick = onPrefsClick) {
+                Icon(Icons.Default.Settings, contentDescription = stringResource(R.string.prefs_title))
             }
         },
         colors = TopAppBarDefaults.topAppBarColors(
@@ -121,7 +109,7 @@ fun TellicoTopBar(
 }
 
 // ---------------------------------------------------------------------------
-// Panneau latéral : liste des collections
+// Side panel: collection list.
 // ---------------------------------------------------------------------------
 
 @Composable
@@ -130,6 +118,8 @@ fun CollectionSidePanel(
     selectedId: Long?,
     onSelect: (Long) -> Unit,
     onDelete: (Long) -> Unit,
+    onSyncClick: () -> Unit = {},
+    onAboutClick: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -137,7 +127,7 @@ fun CollectionSidePanel(
             .background(MaterialTheme.colorScheme.surfaceVariant)
             .fillMaxHeight()
     ) {
-        // En-tête du panneau
+        // Panel header.
         Row(
             Modifier.fillMaxWidth().padding(16.dp, 12.dp),
             verticalAlignment = Alignment.CenterVertically
@@ -157,8 +147,8 @@ fun CollectionSidePanel(
         }
         HorizontalDivider()
 
-        // Liste des collections
-        LazyColumn(Modifier.fillMaxSize().padding(vertical = 4.dp)) {
+        // Collection list.
+        LazyColumn(Modifier.weight(1f).padding(vertical = 4.dp)) {
             items(collections, key = { it.id }) { collection ->
                 CollectionItem(
                     collection = collection,
@@ -177,6 +167,30 @@ fun CollectionSidePanel(
                         modifier = Modifier.padding(16.dp)
                     )
                 }
+            }
+        }
+
+        // Bottom actions: Sync + About
+        HorizontalDivider()
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceEvenly
+        ) {
+            TextButton(onClick = onSyncClick) {
+                Icon(Icons.Default.Sync, null, Modifier.size(18.dp),
+                     tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(Modifier.width(4.dp))
+                Text(stringResource(R.string.sync),
+                     style = MaterialTheme.typography.labelMedium,
+                     color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            TextButton(onClick = onAboutClick) {
+                Icon(Icons.Default.Info, null, Modifier.size(18.dp),
+                     tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(Modifier.width(4.dp))
+                Text(stringResource(R.string.about_title),
+                     style = MaterialTheme.typography.labelMedium,
+                     color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }
@@ -204,7 +218,7 @@ fun CollectionItem(
             .padding(horizontal = 12.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Icône du type de collection
+        // Collection type icon.
         CollectionTypeIcon(collection.type, Modifier.size(20.dp))
         Spacer(Modifier.width(10.dp))
 
@@ -217,7 +231,7 @@ fun CollectionItem(
                 color    = MaterialTheme.colorScheme.onSurface
             )
             Text(
-                text  = "${collection.entryCount} articles",
+                text  = "${collection.entryCount} entries",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -234,7 +248,7 @@ fun CollectionItem(
 }
 
 // ---------------------------------------------------------------------------
-// Dialog de filtre par champ
+// Field filter dialog.
 // ---------------------------------------------------------------------------
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -248,7 +262,7 @@ fun FieldFilterDialog(
     var selectedField by remember { mutableStateOf(fields.firstOrNull()) }
     var filterValue   by remember { mutableStateOf("") }
     var distinctValues by remember { mutableStateOf<List<String>>(emptyList()) }
-    // Chargement des valeurs distinctes quand le champ change
+    // Load distinct values when the field changes.
     LaunchedEffect(selectedField) {
         selectedField?.let { field ->
             distinctValues = viewModel.getDistinctValues(field.name)
@@ -260,7 +274,7 @@ fun FieldFilterDialog(
         title = { Text(stringResource(R.string.filter_by_field)) },
         text = {
             Column {
-                // Sélection du champ
+                // Field selection.
                 Text(
                     stringResource(R.string.field),
                     style = MaterialTheme.typography.labelSmall,
@@ -289,7 +303,7 @@ fun FieldFilterDialog(
 
                 Spacer(Modifier.height(12.dp))
 
-                // Valeur du filtre
+                // Filter value.
                 if (selectedField?.type == FieldType.CHOICE && distinctValues.isNotEmpty()) {
                     Text(stringResource(R.string.value), style = MaterialTheme.typography.labelSmall)
                     distinctValues.take(20).forEach { v ->
@@ -332,7 +346,7 @@ fun FieldFilterDialog(
 }
 
 // ---------------------------------------------------------------------------
-// Dialog de progression de l'import
+// Import progress dialog.
 // ---------------------------------------------------------------------------
 
 @Composable
@@ -340,7 +354,7 @@ fun ImportProgressDialog(state: ImportState, onDismiss: () -> Unit) {
     when (state) {
         is ImportState.Loading -> {
             AlertDialog(
-                onDismissRequest = {},  // non dismissable pendant l'import
+                onDismissRequest = {},  // not dismissable during import
                 title = { Text(stringResource(R.string.importing)) },
                 text = {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -442,15 +456,15 @@ fun RatingStars(rating: Float, maxRating: Int = 5, size: Dp = 16.dp) {
 }
 
 /**
- * Composant image Tellico unifié.
+ * Unified Tellico image component.
  *
- * Choisit automatiquement la source selon la disponibilité :
- * 1. Si imageBasePath != null → image externe sur filesystem (tellicofile://)
- * 2. Sinon → image embarquée dans Room (tellico://)
+ * Automatically picks the source based on availability:
+ * 1. If imageBasePath != null → external file system image (tellicofile://)
+ * 2. Otherwise → image embedded in Room (tellico://)
  *
- * @param imageId      Nom du fichier image (ex: "abc123.jpeg")
- * @param collectionId ID de la collection (pour Room)
- * @param imageBasePath Chemin absolu du répertoire _files externe, ou null
+ * @param imageId      Image filename (e.g. "abc123.jpeg")
+ * @param collectionId Collection ID (for Room lookup)
+ * @param imageBasePath Absolute path to the external _files directory, or null
  */
 @Composable
 fun TellicoImage(
@@ -464,17 +478,17 @@ fun TellicoImage(
     if (imageId.isBlank()) return
 
     val model = if (imageBasePath != null) {
-        // Image externe : tellicofile:///chemin/absolu/vers/_files/imageId
+        // External image: tellicofile:///absolute/path/to/_files/imageId
         "tellicofile://$imageBasePath/$imageId"
     } else {
-        // Image embarquée dans Room
+        // Image embedded in Room database.
         "tellico://$collectionId/$imageId"
     }
 
-    // Log pour debug
+    // Debug log.
     android.util.Log.d("TellicoImage", "model=$model basePath=$imageBasePath")
 
-    // SubcomposeAsyncImage permet d'utiliser des Composables dans les slots error/loading
+    // SubcomposeAsyncImage allows Composables in the error/loading slots.
     coil.compose.SubcomposeAsyncImage(
         model              = model,
         contentDescription = null,
@@ -497,7 +511,7 @@ fun TellicoImage(
 }
 
 // ---------------------------------------------------------------------------
-// CellValue — affichage d'une cellule dans la grille Airtable
+// CellValue — renders a cell in the Airtable-style grid.
 // ---------------------------------------------------------------------------
 
 @Composable
@@ -569,7 +583,7 @@ fun CellValue(
 }
 
 // ---------------------------------------------------------------------------
-// ActiveFilterChip — affiche le filtre actif dans la barre de recherche
+// ActiveFilterChip — shows the active filter in the search bar.
 // ---------------------------------------------------------------------------
 
 @Composable
@@ -609,7 +623,7 @@ fun ActiveFilterChip(
 
 
 // ---------------------------------------------------------------------------
-// Dialog "À propos"
+// About dialog.
 // ---------------------------------------------------------------------------
 
 @Composable
@@ -647,7 +661,7 @@ fun AboutDialog(onDismiss: () -> Unit) {
 
 
 // ---------------------------------------------------------------------------
-// Dialog de configuration du répertoire d'images
+// Image directory configuration dialog.
 // ---------------------------------------------------------------------------
 
 @Composable

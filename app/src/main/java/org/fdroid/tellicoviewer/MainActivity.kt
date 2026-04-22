@@ -17,44 +17,44 @@ import org.fdroid.tellicoviewer.ui.theme.TellicoViewerTheme
 import org.fdroid.tellicoviewer.ui.screens.list.CollectionListViewModel
 
 /**
- * MainActivity : unique activité de l'application (Single Activity Architecture).
+ * MainActivity: the application's single Activity (Single Activity Architecture).
  *
- * En architecture Android moderne, on préfère une seule Activity avec plusieurs
- * "fragments" Compose (écrans navigués). C'est comparable à une application web
- * SPA (Single Page App) où le routeur gère les vues sans rechargement de page.
+ * Modern Android architecture favours a single Activity with multiple
+ * Compose "screens" (navigated destinations), similar to a web
+ * SPA (Single Page App) where the router swaps views without page reloads.
  *
- * @AndroidEntryPoint : marque cette classe pour l'injection Hilt.
+ * @AndroidEntryPoint: marks this class for Hilt injection.
  */
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
 
-    // ViewModel partagé au niveau de l'activité pour gérer l'intent d'ouverture de fichier
+    // Shared ViewModel at the activity level to handle file-open intents.
     private val collectionViewModel: CollectionListViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // Affichage bord à bord (utilise tout l'écran, gère les insets)
+        // Edge-to-edge display (full screen, insets handled).
         enableEdgeToEdge()
 
-        // Demander l'accès complet au stockage pour charger les images externes (_files/)
+        // Request full storage access to load external cover images (_files/).
         requestStoragePermission()
 
-        // Traite un éventuel intent d'ouverture de fichier .tc au démarrage
+        // Handle a .tc file open intent at startup.
         handleIntent(intent)
 
         setContent {
             TellicoViewerTheme {
-                // NavHost : routeur de navigation entre les écrans Compose
+                // NavHost: navigation router between Compose screens.
                 TellicoViewerNavHost()
             }
         }
     }
 
     /**
-     * Gère les intents entrants quand l'app est déjà en cours d'exécution.
-     * Exemple : l'utilisateur ouvre un .tc depuis le gestionnaire de fichiers
-     * alors que TellicoViewer est déjà ouvert.
+     * Handles incoming intents when the app is already running.
+     * Example: the user opens a .tc file from the file manager
+     * while TellicoViewer is already open.
      */
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
@@ -62,9 +62,9 @@ class MainActivity : ComponentActivity() {
     }
 
     /**
-     * Demande la permission d'accès au stockage externe pour charger les images.
-     * Sur Android 11+ : MANAGE_EXTERNAL_STORAGE via les Settings système.
-     * Sur Android <11 : READ_EXTERNAL_STORAGE via le dialog standard.
+     * Requests external storage permission to load cover images.
+     * Android 11+: MANAGE_EXTERNAL_STORAGE via system Settings.
+     * Android <11: READ_EXTERNAL_STORAGE via the standard dialog.
      */
     private fun requestStoragePermission() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
@@ -92,8 +92,8 @@ class MainActivity : ComponentActivity() {
     }
 
     /**
-     * Extrait l'URI du fichier depuis l'intent et le transmet au ViewModel.
-     * Le ViewModel déclenchera le parsing et l'import en base de données.
+     * Extracts the file URI from the intent and forwards it to the ViewModel.
+     * The ViewModel will trigger parsing and database import.
      */
     private fun handleIntent(intent: Intent?) {
         if (intent?.action == Intent.ACTION_VIEW) {

@@ -6,23 +6,26 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
-import org.fdroid.tellicoviewer.ui.screens.config.FieldConfigScreen
+import org.fdroid.tellicoviewer.ui.screens.config.CollectionPrefsScreen
 import org.fdroid.tellicoviewer.ui.screens.detail.EntryDetailScreen
 import org.fdroid.tellicoviewer.ui.screens.list.CollectionListScreen
 import org.fdroid.tellicoviewer.ui.screens.sync.SyncScreen
 
 /**
- * Graphe de navigation de l'application.
- * Routes :
- *   home                              → liste collections + grille articles
- *   detail/{collectionId}/{entryId}   → fiche détail article
- *   config/{collectionId}             → configuration des champs visibles
- *   sync                              → synchronisation Wi-Fi
+ * Application navigation graph.
+ *
+ * Routes:
+ *   home                             – main collection list + entry grid
+ *   detail/{collectionId}/{entryId}  – entry detail view
+ *   prefs/{collectionId}             – unified collection preferences
+ *   sync                             – Wi-Fi sync server
  */
 @Composable
 fun TellicoViewerNavHost() {
     val navController = rememberNavController()
-    // ViewModel partagé au niveau du NavHost pour permettre la communication entre écrans
+
+    // Shared ViewModel at NavHost level so CollectionListScreen and the
+    // preferences screen can communicate (e.g. refresh after prefs change).
     val collectionViewModel: org.fdroid.tellicoviewer.ui.screens.list.CollectionListViewModel =
         androidx.hilt.navigation.compose.hiltViewModel()
 
@@ -34,8 +37,8 @@ fun TellicoViewerNavHost() {
                 onEntryClick  = { collectionId, entryId ->
                     navController.navigate(Routes.detail(collectionId, entryId))
                 },
-                onConfigClick = { collectionId ->
-                    navController.navigate(Routes.config(collectionId))
+                onPrefsClick  = { collectionId ->
+                    navController.navigate(Routes.prefs(collectionId))
                 },
                 onSyncClick   = { navController.navigate(Routes.SYNC) }
             )
@@ -52,14 +55,15 @@ fun TellicoViewerNavHost() {
         }
 
         composable(
-            route     = Routes.CONFIG,
+            route     = Routes.PREFS,
             arguments = listOf(
                 navArgument("collectionId") { type = NavType.LongType }
             )
         ) {
-            FieldConfigScreen(
+            CollectionPrefsScreen(
                 onBack = {
-                    // Notifier le ViewModel principal que les prefs ont changé
+                    // Trigger a field-preference refresh so the grid updates
+                    // immediately without requiring a re-import.
                     collectionViewModel.refreshFieldPreferences()
                     navController.popBackStack()
                 }
@@ -75,9 +79,9 @@ fun TellicoViewerNavHost() {
 object Routes {
     const val HOME   = "home"
     const val DETAIL = "detail/{collectionId}/{entryId}"
-    const val CONFIG = "config/{collectionId}"
+    const val PREFS  = "prefs/{collectionId}"
     const val SYNC   = "sync"
 
     fun detail(collectionId: Long, entryId: Long) = "detail/$collectionId/$entryId"
-    fun config(collectionId: Long)                 = "config/$collectionId"
+    fun prefs(collectionId: Long)                  = "prefs/$collectionId"
 }

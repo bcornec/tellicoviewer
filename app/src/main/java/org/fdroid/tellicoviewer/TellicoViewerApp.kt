@@ -11,11 +11,11 @@ import org.fdroid.tellicoviewer.util.TellicoImageLoader
 import javax.inject.Inject
 
 /**
- * Classe Application : point d'entrée du processus Android.
+ * Application class: process entry point.
  *
- * Implémente [ImageLoaderFactory] pour enregistrer notre ImageLoader Coil custom
- * (avec le fetcher tellico:// et tellicofile://) comme loader global.
- * Coil appelle newImageLoader() automatiquement pour configurer son singleton.
+ * Implements [ImageLoaderFactory] to register the custom Coil ImageLoader
+ * (with the tellico:// and tellicofile:// fetchers) as the global loader.
+ * Coil calls newImageLoader() automatically to configure its singleton.
  */
 @HiltAndroidApp
 class TellicoViewerApp : Application(), Configuration.Provider, ImageLoaderFactory {
@@ -23,10 +23,10 @@ class TellicoViewerApp : Application(), Configuration.Provider, ImageLoaderFacto
     @Inject lateinit var workerFactory: HiltWorkerFactory
 
     /**
-     * Notre ImageLoader custom est injecté par Hilt.
-     * Il contient le TellicoImageFetcher qui gère les URIs tellico:// et tellicofile://.
-     * Hilt ne peut pas injecter dans Application avant onCreate(), donc on utilise
-     * lateinit et on retarde l'accès via newImageLoader().
+     * Our custom ImageLoader is injected by Hilt.
+     * It holds the TellicoImageFetcher that handles tellico:// and tellicofile:// URIs.
+     * Hilt cannot inject into Application before onCreate(), so we use
+     * lateinit and defer access via newImageLoader().
      */
     @Inject lateinit var tellicoImageLoader: TellicoImageLoader
 
@@ -37,8 +37,8 @@ class TellicoViewerApp : Application(), Configuration.Provider, ImageLoaderFacto
             .build()
 
     /**
-     * Appelé par Coil pour obtenir l'ImageLoader singleton global.
-     * Toutes les AsyncImage() de l'app utiliseront automatiquement ce loader.
+     * Called by Coil to obtain the global singleton ImageLoader.
+     * All AsyncImage() calls in the app will automatically use this loader.
      */
     override fun newImageLoader(): ImageLoader = tellicoImageLoader.imageLoader
 }

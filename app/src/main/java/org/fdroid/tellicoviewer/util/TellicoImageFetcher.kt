@@ -22,13 +22,13 @@ import javax.inject.Singleton
 /**
  * Fetcher Coil gérant deux sources d'images Tellico.
  *
- * IMPORTANT : Coil convertit automatiquement les String en android.net.Uri
- * quand le model ressemble à une URI. Il faut donc utiliser Fetcher.Factory<Uri>
- * (et non Factory<String>) pour intercepter nos URIs custom.
+ * IMPORTANT: Coil automatically converts Strings to android.net.Uri
+ * when the model looks like a URI. Use Fetcher.Factory<Uri>
+ * (not Factory<String>) to intercept our custom URIs.
  *
- * Schemes supportés :
- *   tellico://collectionId/imageId      → images embarquées dans Room
- *   tellicofile:///chemin/absolu/img    → images externes sur le filesystem
+ * Supportés schemas:
+ *   tellico://collectionId/imageId      → images embedded in Room
+ *   tellicofile:///absolute/path/img    → external images on the file system
  */
 class TellicoImageFetcher private constructor(
     private val uri: Uri,
@@ -43,7 +43,7 @@ class TellicoImageFetcher private constructor(
     }
 
     // -----------------------------------------------------------------------
-    // Images embarquées dans Room
+    // Images embedded in Room.
     // tellico://collectionId/imageId
     // -----------------------------------------------------------------------
     private suspend fun fetchFromRoom(): FetchResult? {
@@ -65,12 +65,12 @@ class TellicoImageFetcher private constructor(
     }
 
     // -----------------------------------------------------------------------
-    // Images externes sur le filesystem
+    // External images on the file system.
     // tellicofile:///storage/emulated/0/Download/BD_files/abc.jpeg
     // -----------------------------------------------------------------------
     private fun fetchFromFile(): FetchResult? {
-        // Uri.path sur "tellicofile:///storage/emulated/0/Download/BD_files/abc.jpeg"
-        // retourne "/storage/emulated/0/Download/BD_files/abc.jpeg"
+        // Uri.path on "tellicofile:///storage/emulated/0/Download/BD_files/abc.jpeg"
+        // returns "/storage/emulated/0/Download/BD_files/abc.jpeg"
         val filePath = uri.path ?: run {
             Log.w("TellicoFetcher", "URI sans chemin : $uri")
             return null
@@ -101,7 +101,7 @@ class TellicoImageFetcher private constructor(
         else -> "image/*"
     }
 
-    // Factory<Uri> — Coil convertit les String-URIs en Uri avant de chercher un fetcher
+    // Factory<Uri> — Coil converts String URIs to Uri before looking up a fetcher.
     class Factory @Inject constructor(
         private val imageDao: ImageDao
     ) : Fetcher.Factory<Uri> {

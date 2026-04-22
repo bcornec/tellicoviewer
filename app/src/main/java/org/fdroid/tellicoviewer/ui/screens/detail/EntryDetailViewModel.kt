@@ -14,10 +14,10 @@ import org.fdroid.tellicoviewer.data.repository.TellicoRepository
 import javax.inject.Inject
 
 /**
- * ViewModel de l'écran de détail d'un article.
+ * ViewModel for the entry detail screen.
  *
- * SavedStateHandle : permet de récupérer les arguments de navigation
- * (comme les paramètres d'URL en web). Survit au "process death" Android.
+ * SavedStateHandle: retrieves navigation arguments
+ * (like URL parameters on the web). Survives Android process death.
  */
 @HiltViewModel
 class EntryDetailViewModel @Inject constructor(
@@ -25,7 +25,7 @@ class EntryDetailViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
-    /** Extrait les arguments depuis la navigation (définis dans NavHost) */
+    /** Extracts arguments from navigation (defined in NavHost). */
     private val entryId: Long = checkNotNull(savedStateHandle["entryId"])
     private val collectionId: Long = checkNotNull(savedStateHandle["collectionId"])
 
@@ -65,8 +65,8 @@ class EntryDetailViewModel @Inject constructor(
     }
 
     /**
-     * Charge les données binaires d'une image pour l'affichage.
-     * Retourne null si l'image n'existe pas.
+     * Loads binary image data for display.
+     * Returns null if the image does not exist.
      */
     suspend fun loadImage(imageId: String): ByteArray? =
         repository.getImage(collectionId, imageId)

@@ -10,9 +10,9 @@ import java.io.InputStream
 import java.util.zip.ZipInputStream
 
 /**
- * Parseur de fichiers Tellico (.tc) — version finale validée sur fichiers réels.
+ * Tellico (.tc) file parser — final version validated on real files.
  *
- * RÈGLE UNIVERSELLE découverte par analyse de 4 fichiers réels (Livres, BD, DVD, Disques) :
+ * UNIVERSAL RULE discovered by analysing 4 real files (Books, Comics, DVD, Records):
  *
  * Tellico génère TOUJOURS wrapper = field_name + "s" (jamais de pluriel grammatical).
  * - "title"       → <titles><title>…</title></titles>
@@ -20,22 +20,22 @@ import java.util.zip.ZipInputStream
  * - "nationality" → <nationalitys><nationality>…</nationality></nationalitys>
  * - "compositeur" → <compositeurs><compositeur>…</compositeur></compositeurs>
  *
- * EXCEPTION : les champs de type DATE (type=12) ont le même tag que field_name
- * mais contiennent des sous-éléments year/month/day :
+ * EXCEPTION: DATE fields (type=12) share the tag name with field_name
+ * but contain year/month/day child elements:
  *   <date-achat><year>2007</year><month>07</month><day>02</day></date-achat>
  *
  * ALGORITHME :
- * On construit un index wrapperIndex = { field_name+"s" → field_name } avant le parsing.
- * Pour chaque tag XML dans une entry :
- *   - Si tag dans wrapperIndex → c'est un wrapper, lire les TEXT des enfants
- *   - Si tag est un champ date → lire year/month/day → formater en YYYY-MM-DD
- *   - Sinon → lire le TEXT direct
+ * We build a wrapperIndex = { field_name+"s" → field_name } before parsing.
+ * For each XML tag in an entry:
+ *   - If tag is in wrapperIndex → it is a wrapper, read child TEXT nodes
+ *   - If tag is a date field → read year/month/day → format as YYYY-MM-DD
+ *   - Otherwise → read TEXT content directly
  *
  * NAMESPACE : le XML a xmlns="http://periapsis.org/tellico/". On désactive
- * la gestion des namespaces (isNamespaceAware=false) pour lire les tags sans préfixe.
- * La méthode localName() strip les accolades si jamais elles apparaissent quand même.
+ * namespace handling (isNamespaceAware=false) to read tags without prefix.
+ * localName() strips braces in case they appear anyway.
  *
- * DOCTYPE : on désactive le traitement du DOCTYPE pour éviter les accès réseau.
+ * DOCTYPE: we disable DOCTYPE processing to avoid network access.
  */
 class TellicoParser {
 
@@ -106,11 +106,11 @@ class TellicoParser {
         val fields  = mutableListOf<TellicoField>()
         val entries = mutableListOf<TellicoEntry>()
 
-        // Index construits après parsing de <fields>
+        // Indexes built after parsing <fields>.
         // wrapperIndex : "titles" → "title", "authors" → "author", etc.
-        // Règle : wrapper = field_name + "s" (TOUJOURS, pas de pluriel grammatical)
+        // Rule: wrapper = field_name + "s" (ALWAYS, no grammatical pluralisation).
         val wrapperIndex = mutableMapOf<String, String>()
-        val dateFields   = mutableSetOf<String>()   // champs type DATE (type=12)
+        val dateFields   = mutableSetOf<String>()   // fields of type DATE (type=12)
 
         var inFields = false
         var inEntry  = false
@@ -151,13 +151,13 @@ class TellicoParser {
                                     defaultValue = parser.getAttributeValue(null, "default") ?: "",
                                     description  = parser.getAttributeValue(null, "description") ?: ""
                                 ))
-                                // INDEX WRAPPER : field_name + "s" → field_name
+                                // WRAPPER INDEX: field_name + "s" → field_name
                                 wrapperIndex[fieldName + "s"] = fieldName
-                                // Mapping direct aussi (tag = field_name pour les champs directs)
+                                // Direct mapping too (tag == field_name for simple fields).
                                 wrapperIndex[fieldName]       = fieldName
                                 if (fieldType == "12") dateFields.add(fieldName)
                             }
-                            // Ignorer les sous-éléments <prop> du field
+                            // Skip <prop> child elements inside <field>.
                             skipElement(parser)
                         }
 
@@ -169,10 +169,10 @@ class TellicoParser {
                         }
 
                         inEntry -> {
-                            // Lire le champ et avancer le parser jusqu'au END_TAG inclus
+                            // Read the field and advance the parser to END_TAG inclusive.
                             readEntryChild(parser, tag, wrapperIndex, dateFields, curFields, curImages)
-                            // Le curseur est maintenant SUR le END_TAG du tag courant.
-                            // La boucle va faire parser.next() → avance correctement.
+                            // Cursor is now ON the END_TAG of the current tag.
+                            // The loop will call parser.next() → advances correctly.
                         }
                     }
                 }
@@ -206,25 +206,25 @@ class TellicoParser {
     }
 
     // -------------------------------------------------------------------------
-    // Lecture d'un tag enfant d'une entry
-    // Précondition  : parser est sur START_TAG du tag
-    // Postcondition : parser est sur END_TAG du tag (la boucle appelante fera next())
+    // Read a child tag of an entry.
+    // Precondition : parser is on START_TAG of the tag.
+    // Postcondition: parser is on END_TAG of the tag (caller will call next()).
     // -------------------------------------------------------------------------
 
     /**
-     * Lit un tag enfant d'une entry et stocke sa valeur dans curFields.
+     * Reads a child tag of an entry and stores its value in curFields.
      *
-     * Gère 4 patterns XML Tellico :
+     * Handles 4 Tellico XML patterns:
      *
-     * 1. TEXTE DIRECT   : <binding>Souple</binding>
+     * 1. DIRECT TEXT   : <binding>Paperback</binding>
      * 2. WRAPPER SIMPLE : <authors><author>Herbert</author></authors>
-     *    → childTexts = ["Herbert"], valeur = "Herbert"
-     * 3. TABLE 2 niveaux : <casts><cast><column>A</column><column>B</column></cast></casts>
-     *    → chaque <cast> produit "A	B", séparés par LIST_SEPARATOR
+     *    → childTexts = ["Herbert"], value = "Herbert"
+     * 3. TABLE 2 levels : <casts><cast><column>A</column><column>B</column></cast></casts>
+     *    → each <cast> produces "A	B", joined by LIST_SEPARATOR
      * 4. DATE           : <date-achat><year>Y</year><month>M</month><day>D</day></date-achat>
-     *    → valeur = "Y-MM-DD"
+     *    → value = "Y-MM-DD"
      *
-     * Postcondition : le curseur parser est sur le END_TAG du tag de départ.
+     * Postcondition: parser cursor is on the END_TAG of the opening tag.
      */
     private fun readEntryChild(
         parser: XmlPullParser,
@@ -244,7 +244,7 @@ class TellicoParser {
         }
 
         var directText          = ""
-        val rowValues           = mutableListOf<String>()   // valeurs des lignes (wrapper ou table)
+        val rowValues           = mutableListOf<String>()   // row values (wrapper or table)
         val childDateParts      = mutableMapOf<String, String>()
         var depth               = 1
 
@@ -256,17 +256,17 @@ class TellicoParser {
                     val childTag = parser.name.localName()
 
                     when (childTag) {
-                        // Champ date : accumuler year/month/day directement
+                        // Date field: accumulate year/month/day directly.
                         "year", "month", "day" -> {
-                            val txt = readTextContent(parser)  // lit jusqu'au END_TAG de year/month/day
+                            val txt = readTextContent(parser)  // reads to END_TAG of year/month/day
                             depth--
                             if (txt.isNotEmpty()) childDateParts[childTag] = txt
                         }
                         else -> {
                             // Lire le contenu de cet enfant.
                             // Il peut s'agir :
-                            //   - d'un texte direct (wrapper simple : <author>Herbert</author>)
-                            //   - de sous-éléments <column> (table : <cast><column>A</column><column>B</column></cast>)
+                            //   - direct text (simple wrapper: <author>Herbert</author>)
+                            //   - <column> sub-elements (table: <cast><column>A</column><column>B</column></cast>)
                             val row = readChildWithColumns(parser)
                             depth--
                             if (row.isNotEmpty()) rowValues.add(row)
@@ -279,7 +279,7 @@ class TellicoParser {
             }
             if (depth > 0) ev = parser.next()
         }
-        // Curseur sur END_TAG du tag de départ ✓
+        // Cursor is on END_TAG of the opening tag ✓
 
         val value: String = when {
             fieldName in dateFields && childDateParts.isNotEmpty() -> {
@@ -299,10 +299,10 @@ class TellicoParser {
     }
 
     /**
-     * Lit le contenu texte simple d'un élément jusqu'à son END_TAG.
-     * Précondition : curseur juste APRÈS le START_TAG (appelé après avoir vu le START_TAG et
-     * incrémenté depth, donc le caller doit décrémenter depth après).
-     * Postcondition : curseur SUR le END_TAG de l'élément.
+     * Reads the simple text content of an element up to its END_TAG.
+     * Precondition: cursor just AFTER the START_TAG (called after seeing START_TAG and
+     * incrementing depth, so the caller must decrement depth after).
+     * Postcondition: cursor ON the END_TAG of the element.
      */
     private fun readTextContent(parser: XmlPullParser): String {
         val sb = StringBuilder()
@@ -316,16 +316,16 @@ class TellicoParser {
     }
 
     /**
-     * Lit un enfant qui peut contenir soit du texte direct soit des sous-éléments <column>.
+     * Reads a child that may contain direct text or <column> sub-elements.
      *
-     * Cas 1 — texte direct (wrapper simple) :
+     * Case 1 — direct text (simple wrapper):
      *   <author>Herbert</author>  →  "Herbert"
      *
      * Cas 2 — colonnes (table) :
      *   <cast><column>Tom Cruise</column><column>Ethan Hunt</column></cast>  →  "Tom Cruise	Ethan Hunt"
      *
-     * Précondition : curseur juste APRÈS le START_TAG de l'enfant.
-     * Postcondition : curseur SUR le END_TAG de l'enfant.
+     * Precondition: cursor just AFTER the START_TAG of the child.
+     * Postcondition: cursor ON the END_TAG of the child.
      * Le caller doit décrémenter depth.
      */
     private fun readChildWithColumns(parser: XmlPullParser): String {
@@ -337,7 +337,7 @@ class TellicoParser {
             when (ev) {
                 XmlPullParser.TEXT -> directText += parser.text?.trim() ?: ""
                 XmlPullParser.START_TAG -> {
-                    // Sous-élément : lire son texte (typiquement <column>)
+                    // Sub-element: read its text (typically <column>).
                     val colText = readTextContent(parser)
                     if (colText.isNotEmpty()) columns.add(colText)
                 }
@@ -358,9 +358,9 @@ class TellicoParser {
     // -------------------------------------------------------------------------
 
     /**
-     * Saute tous les tokens jusqu'au END_TAG correspondant au START_TAG courant.
-     * Appeler quand le curseur est SUR le START_TAG à ignorer.
-     * Postcondition : curseur sur le END_TAG correspondant.
+     * Skips all tokens up to the END_TAG matching the current START_TAG.
+     * Call when cursor is ON the START_TAG to skip.
+     * Postcondition: cursor on the corresponding END_TAG.
      */
     private fun skipElement(parser: XmlPullParser) {
         var depth = 1

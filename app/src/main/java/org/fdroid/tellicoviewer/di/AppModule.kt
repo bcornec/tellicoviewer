@@ -14,36 +14,36 @@ import javax.inject.Singleton
 /**
  * Module Hilt d'injection de dépendances.
  *
- * CONCEPT DE L'INJECTION DE DÉPENDANCES (DI) :
- * Plutôt que d'écrire :
+ * CONCEPT OF DEPENDENCIES INJECTION (DI) :
+ * Instead of writing:
  *   val db = Room.databaseBuilder(...).build()
  *   val dao = db.entryDao()
  *   val repo = TellicoRepository(context, db, TellicoParser(), SearchEngine())
  *
- * ...dans chaque ViewModel, on déclare UNE FOIS comment construire chaque objet.
- * Hilt injecte ensuite automatiquement les dépendances là où elles sont annotées @Inject.
+ * ...in every ViewModel, declare ONCE how to build each object.
+ * Hilt then automatically injects dependencies wherever @Inject is present.
  *
  * Avantages :
- * - Un seul singleton pour la BDD (pas de double ouverture SQLite)
- * - Remplacement facile par des mocks pour les tests
- * - Moins de boilerplate dans les ViewModels
+ * - Single DB singleton (no double SQLite open)
+ * - Easy mock substitution for tests
+ * - Less boilerplate in ViewModels
  *
- * Analogie : c'est comme LD_PRELOAD pour les bibliothèques partagées —
- * on peut substituer des implémentations sans toucher au code appelant.
+ * Analogy: like LD_PRELOAD for shared libraries —
+ * implementations can be swapped without touching the calling code.
  *
- * @Module   : déclare que cette classe fournit des dépendances
- * @InstallIn(SingletonComponent) : les dépendances vivent pendant toute l'app
+ * @Module: declares that this class provides dependencies
+ * @InstallIn(SingletonComponent): dependencies live for the entire app lifetime
  */
 @Module
 @InstallIn(SingletonComponent::class)
 object DatabaseModule {
 
     /**
-     * Fournit la base de données Room (singleton).
-     * Une seule instance existe pendant toute la durée de vie de l'application.
+     * Provides the Room database (singleton).
+     * A single instance exists for the entire application lifetime.
      *
      * fallbackToDestructiveMigration() : en développement, si le schéma change
-     * sans migration, on recrée la BDD. À retirer en production !
+     * without migration, recreate the DB. Remove in production!
      */
     @Provides
     @Singleton
@@ -54,7 +54,7 @@ object DatabaseModule {
             TellicoDatabase.DATABASE_NAME
         )
         .addMigrations(TellicoDatabase.MIGRATION_1_2)
-        .fallbackToDestructiveMigration()  // filet de sécurité si migration inconnue
+        .fallbackToDestructiveMigration()  // Safety net for unknown migrations.
         .build()
 
     @Provides @Singleton
@@ -74,7 +74,7 @@ object DatabaseModule {
 @InstallIn(SingletonComponent::class)
 object ParserModule {
 
-    /** Parseur Tellico : sans état, peut être un singleton */
+    /** Tellico parser: stateless, safe as a singleton. */
     @Provides @Singleton
     fun provideTellicoParser(): TellicoParser = TellicoParser()
 }

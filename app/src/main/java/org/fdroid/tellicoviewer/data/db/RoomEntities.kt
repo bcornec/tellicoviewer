@@ -5,9 +5,9 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 
 /**
- * Entités Room (tables SQLite).
- * NOTE : les @Entity ne sont PAS annotées @Serializable (conflit processeurs KSP).
- * La sérialisation JSON est faite manuellement dans les Converters et le Repository.
+ * Room entities (SQLite tables).
+ * NOTE: @Entity classes are NOT annotated @Serializable (KSP processor conflict).
+ * JSON serialisation is done manually in Converters and the Repository.
  */
 
 class Converters {
@@ -34,9 +34,9 @@ data class CollectionEntity(
     val entryCount: Int = 0,
     val fileHash: String = "",
     /**
-     * Chemin absolu du répertoire contenant les images externes.
+     * Absolute path to the directory containing external images.
      * Ex: /storage/emulated/0/Download/Livres_files
-     * Null si les images sont embarquées dans le .tc ou absentes.
+     * Null if images are embedded in the .tc file or absent.
      */
     val imageBasePath: String? = null
 )
@@ -80,15 +80,15 @@ data class EntryEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val collectionId: Long,
     val tellicoId: Int,
-    /** JSON object : {"title":"Dune","author":"Herbert",...} */
+    /** JSON object: {"title":"Dune","author":"Herbert",...} */
     val fieldValues: String = "{}",
-    /** JSON array : ["cover.jpg"] */
+    /** JSON array: ["cover.jpg"] */
     val imageIds: String = "[]",
     val cachedTitle: String = "",
     val updatedAt: Long = System.currentTimeMillis()
 )
 
-/** Index FTS4 pour la recherche plein texte en O(log n). */
+/** FTS4 index for full-text search in O(log n). */
 @Fts4(contentEntity = EntryEntity::class)
 @Entity(tableName = "entries_fts")
 data class EntryFtsEntity(

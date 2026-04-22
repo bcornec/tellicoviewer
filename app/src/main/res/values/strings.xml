@@ -84,4 +84,13 @@
     <string name="image_path_description">Path to the folder containing cover images (_files directory next to the .tc file).</string>
     <string name="image_path_hint">Folder path (e.g. /storage/emulated/0/Download/BD_files)</string>
     <string name="image_path_pick">Browse for folder…</string>
+<!-- Unified preferences screen -->
+    <string name="prefs_title">Collection preferences</string>
+    <string name="prefs_tab_columns">Columns</string>
+    <string name="prefs_tab_widths">Widths</string>
+    <string name="prefs_tab_images">Images</string>
+    <string name="prefs_widths_hint">Override column widths (60–600 dp). Changes apply immediately when you leave this screen.</string>
+    <string name="prefs_images_folder_ok">Folder found ✓</string>
+    <string name="prefs_images_folder_not_found">Folder not found — check the path</string>
+    <string name="empty_collection_hint2">Tap the + button to import a .tc file</string>
 </resources>

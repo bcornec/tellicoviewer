@@ -39,15 +39,15 @@ import javax.inject.Inject
  * ViewModel de synchronisation Wi-Fi.
  *
  * PRINCIPE :
- * L'appareil Android démarre un serveur HTTP minimal sur le port 8765.
- * Le PC accède à http://<IP_ANDROID>:8765/ depuis un navigateur web
- * pour uploader des fichiers .tc via un formulaire HTML.
+ * The Android device starts a minimal HTTP server on port 8765.
+ * The PC accesses http://<ANDROID_IP>:8765/ from a web browser
+ * to upload .tc files via an HTML form.
  *
- * C'est intentionnellement simple : pas de TLS, réseau local uniquement.
- * Pour une vraie synchro bidirectionnelle, on pourrait utiliser Syncthing.
+ * Intentionally simple: no TLS, local network only.
+ * For true bidirectional sync, Syncthing could be used instead.
  *
- * ALTERNATIVE (pour utilisateurs avancés) : rsync via SSH + Termux.
- * Cette approche HTTP est plus accessible pour des non-techniciens.
+ * ALTERNATIVE (advanced users): rsync via SSH + Termux.
+ * This HTTP approach is more accessible to non-technical users.
  */
 @HiltViewModel
 class SyncViewModel @Inject constructor(
@@ -78,7 +78,7 @@ class SyncViewModel @Inject constructor(
     private var serverJob: Job? = null
     private var serverSocket: ServerSocket? = null
 
-    /** Démarre le serveur HTTP sur le port SYNC_PORT */
+    /** Starts the HTTP server on SYNC_PORT. */
     fun startServer() {
         if (_syncState.value is SyncState.Running) return
 
@@ -116,8 +116,8 @@ class SyncViewModel @Inject constructor(
     }
 
     /**
-     * Gère une connexion HTTP entrante.
-     * Implémentation HTTP/1.0 minimale : GET (interface web) et POST (upload fichier).
+     * Handles an incoming HTTP connection.
+     * Minimal HTTP/1.0 implementation: GET (web UI) and POST (file upload).
      */
     private suspend fun handleClient(socket: Socket) = withContext(Dispatchers.IO) {
         try {
@@ -141,7 +141,7 @@ class SyncViewModel @Inject constructor(
                         sendHttpResponse(outputStream, 200, "text/html; charset=utf-8", html.toByteArray())
                     }
                     method == "POST" && path == "/upload" -> {
-                        // Traiter l'upload du fichier .tc
+                        // Process the .tc file upload.
                         val headers = mutableMapOf<String, String>()
                         var line = reader.readLine()
                         while (!line.isNullOrEmpty()) {
@@ -256,7 +256,7 @@ class SyncViewModel @Inject constructor(
         val status = when (code) {
             200 -> "200 OK"; 400 -> "400 Bad Request"; 404 -> "404 Not Found"; else -> "$code"
         }
-        // Écrire headers + body en une seule fois sur l'OutputStream brut
+        // Write headers + body in one shot on the raw OutputStream.
         val headers = "HTTP/1.0 $status\r\nContent-Type: $contentType\r\n" +
                       "Content-Length: ${body.size}\r\nConnection: close\r\n\r\n"
         out.write(headers.toByteArray(Charsets.US_ASCII))
@@ -282,7 +282,7 @@ class SyncViewModel @Inject constructor(
     }
 
     private fun extractFileData(contentType: String, body: ByteArray): ByteArray? {
-        // Parser multipart basique : trouver la frontière et extraire les données
+        // Basic multipart parser: find the boundary and extract data.
         val boundary = contentType.substringAfter("boundary=").trim()
         if (boundary.isEmpty()) return null
         val sep = "\r\n\r\n".toByteArray()
@@ -306,7 +306,7 @@ class SyncViewModel @Inject constructor(
 
     @Suppress("DEPRECATION")
     private fun getWifiIpAddress(): String {
-        // Android 12+ : utiliser ConnectivityManager + LinkProperties
+        // Android 12+: use ConnectivityManager + LinkProperties.
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
             try {
                 val cm = context.applicationContext
@@ -322,7 +322,7 @@ class SyncViewModel @Inject constructor(
                 return "0.0.0.0"
             }
         }
-        // Android < 12 : méthode classique (dépréciée mais fonctionnelle)
+        // Android < 12: classic method (deprecated but functional).
         val wifiMgr = context.applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
         @Suppress("DEPRECATION")
         val ip = wifiMgr.connectionInfo.ipAddress
@@ -331,7 +331,7 @@ class SyncViewModel @Inject constructor(
     }
 
     private fun addLog(msg: String) {
-        _log.value = (_log.value + msg).takeLast(50)  // garder les 50 dernières lignes
+        _log.value = (_log.value + msg).takeLast(50)  // keep the last 50 lines
     }
 
     override fun onCleared() {
@@ -341,7 +341,7 @@ class SyncViewModel @Inject constructor(
 }
 
 // ---------------------------------------------------------------------------
-// Écran de synchronisation
+// Sync screen.
 // ---------------------------------------------------------------------------
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -503,7 +503,7 @@ fun SyncScreen(
                 }
             }
 
-            // ---- Log ----
+            // ---- Log panel ----
             if (log.isNotEmpty()) {
                 item {
                     Text(

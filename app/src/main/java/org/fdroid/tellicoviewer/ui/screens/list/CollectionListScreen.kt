@@ -44,7 +44,6 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.FilterList
-import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.GridOn
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Link
@@ -110,22 +109,21 @@ import org.fdroid.tellicoviewer.ui.components.CollectionSidePanel
 import org.fdroid.tellicoviewer.ui.components.FieldFilterDialog
 import org.fdroid.tellicoviewer.ui.components.FieldTypeIcon
 import org.fdroid.tellicoviewer.ui.components.AboutDialog
-import org.fdroid.tellicoviewer.ui.components.ImagePathDialog
 import org.fdroid.tellicoviewer.ui.components.ImportProgressDialog
 import org.fdroid.tellicoviewer.ui.components.TellicoTopBar
 import org.fdroid.tellicoviewer.ui.theme.TellicoColors
 
 /**
- * Écran principal : liste des collections (panneau gauche) + grille Airtable (centre).
+ * Main screen: collection list (left panel) + Airtable-style grid (centre).
  *
- * Architecture Single Activity : cet écran est la vue principale de l'app.
- * Le ViewModel survit aux rotations — l'état UI est dans des StateFlow.
+ * Single Activity architecture: this is the app's primary view.
+ * The ViewModel survives rotation — UI state lives in StateFlows.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CollectionListScreen(
     onEntryClick: (collectionId: Long, entryId: Long) -> Unit,
-    onConfigClick: (collectionId: Long) -> Unit,
+    onPrefsClick: (collectionId: Long) -> Unit,
     onSyncClick: () -> Unit,
     viewModel: CollectionListViewModel = hiltViewModel()
 ) {
@@ -136,53 +134,31 @@ fun CollectionListScreen(
     val fieldFilter        by viewModel.fieldFilter.collectAsStateWithLifecycle()
     val importState        by viewModel.importState.collectAsStateWithLifecycle()
     val imageBasePath      by viewModel.imageBasePath.collectAsStateWithLifecycle()
-    // Debug : log imageBasePath pour diagnostiquer
-    android.util.Log.d("TellicoImages", "imageBasePath=$imageBasePath selectedId=$selectedId")
     val entries: LazyPagingItems<TellicoEntry> = viewModel.entries.collectAsLazyPagingItems()
 
-    // Largeurs des colonnes : état local mutable (redimensionnement par drag)
+    // Column widths: local mutable state (in-session drag resize).
     var columnWidths by remember { mutableStateOf(mapOf<String, Dp>()) }
+    val savedWidths    by viewModel.savedColumnWidths.collectAsStateWithLifecycle()
     var frozenField  by remember { mutableStateOf<String?>(null) }
     var showFilterDialog by remember { mutableStateOf(false) }
-    var showAboutDialog    by remember { mutableStateOf(false) }
-    var showImagePathDialog by remember { mutableStateOf(false) }
-
-    // Launcher pour sélectionner un répertoire (images externes)
-    val imagePathLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.OpenDocumentTree()
-    ) { treeUri ->
-        if (treeUri != null && selectedId != null) {
-            // Convertir l'URI en chemin lisible
-            val path = treeUri.path?.let { p ->
-                // content://com.android.externalstorage.documents/tree/primary:Download/BD_files
-                // → /storage/emulated/0/Download/BD_files
-                when {
-                    p.contains("primary:") -> {
-                        val rel = p.substringAfter("primary:")
-                        "/storage/emulated/0/$rel"
-                    }
-                    else -> p
-                }
-            }
-            viewModel.setImageBasePath(selectedId!!, path)
-        }
-    }
+    var showAboutDialog by remember { mutableStateOf(false) }
     var showDrawer       by remember { mutableStateOf(true) }
 
-    // Lanceur de sélection de fichier .tc
+    // File picker launcher for .tc files.
     val filePicker = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocument()
     ) { uri: Uri? -> uri?.let { viewModel.importFromUri(it) } }
 
-    // Initialise les largeurs et la colonne gelée quand les champs changent
-    LaunchedEffect(fields) {
+    // Initialise widths and frozen column when fields change.
+    // Seed column widths from saved prefs; fall back to type-based defaults.
+    LaunchedEffect(fields, savedWidths) {
         if (fields.isNotEmpty()) {
             columnWidths = fields.associate { field ->
-                field.name to when (field.type) {
+                field.name to (savedWidths[field.name]?.dp ?: when (field.type) {
                     FieldType.IMAGE -> 80.dp
                     FieldType.PARA  -> 250.dp
                     else            -> 160.dp
-                }
+                })
             }
             frozenField = fields.firstOrNull { it.name == "title" }?.name
                 ?: fields.firstOrNull()?.name
@@ -197,10 +173,7 @@ fun CollectionListScreen(
                 searchQuery    = searchQuery,
                 onSearchChange = viewModel::setSearchQuery,
                 onFilterClick  = { showFilterDialog = true },
-                onSyncClick    = onSyncClick,
-                onConfigClick  = { selectedId?.let { id -> onConfigClick(id) } },
-                onImagePathClick = { showImagePathDialog = true },
-                onAboutClick   = { showAboutDialog = true },
+                onPrefsClick   = { selectedId?.let { id -> onPrefsClick(id) } },
                 onMenuClick    = { showDrawer = !showDrawer },
                 hasFilter      = fieldFilter != null
             )
@@ -221,7 +194,7 @@ fun CollectionListScreen(
         Row(Modifier.fillMaxSize().padding(padding)) {
 
             // ----------------------------------------------------------------
-            // Panneau latéral : liste des collections
+            // Side panel: collection list.
             // ----------------------------------------------------------------
             AnimatedVisibility(
                 visible = showDrawer,
@@ -229,16 +202,18 @@ fun CollectionListScreen(
                 exit    = slideOutHorizontally() + fadeOut()
             ) {
                 CollectionSidePanel(
-                    collections = collections,
-                    selectedId  = selectedId,
-                    onSelect    = viewModel::selectCollection,
-                    onDelete    = viewModel::deleteCollection,
-                    modifier    = Modifier.width(220.dp).fillMaxHeight()
+                    collections  = collections,
+                    selectedId   = selectedId,
+                    onSelect     = viewModel::selectCollection,
+                    onDelete     = viewModel::deleteCollection,
+                    onSyncClick  = onSyncClick,
+                    onAboutClick = { showAboutDialog = true },
+                    modifier     = Modifier.width(220.dp).fillMaxHeight()
                 )
             }
 
             // ----------------------------------------------------------------
-            // Zone principale : grille des articles
+            // Main area: entry grid.
             // ----------------------------------------------------------------
             Column(Modifier.fillMaxSize()) {
                 if (fieldFilter != null) {
@@ -250,13 +225,7 @@ fun CollectionListScreen(
                 }
 
                 when {
-                    selectedId == null -> EmptyCollectionPlaceholder(
-                        onImport = {
-                            filePicker.launch(
-                                arrayOf("application/zip", "application/octet-stream", "*/*")
-                            )
-                        }
-                    )
+                    selectedId == null -> EmptyCollectionPlaceholder()
                     fields.isEmpty() -> Box(
                         Modifier.fillMaxSize(),
                         contentAlignment = Alignment.Center
@@ -302,24 +271,11 @@ fun CollectionListScreen(
         AboutDialog(onDismiss = { showAboutDialog = false })
     }
 
-    if (showImagePathDialog && selectedId != null) {
-        ImagePathDialog(
-            currentPath  = imageBasePath,
-            onConfirm    = { path: String? ->
-                viewModel.setImageBasePath(selectedId!!, path)
-                showImagePathDialog = false
-            },
-            onPickFolder = {
-                showImagePathDialog = false
-                imagePathLauncher.launch(null)
-            },
-            onDismiss    = { showImagePathDialog = false }
-        )
-    }
+
 }
 
 // ---------------------------------------------------------------------------
-// Grille style Airtable avec colonne gelée
+// Airtable-style grid with frozen column.
 // ---------------------------------------------------------------------------
 
 @Composable
@@ -341,7 +297,7 @@ fun AirtableGrid(
 
     Column(modifier.fillMaxSize()) {
 
-        // En-tête sticky
+        // Sticky header row.
         Row(
             Modifier
                 .fillMaxWidth()
@@ -459,7 +415,7 @@ fun AirtableRow(
             )
         }
 
-        // Colonnes gelées
+        // Frozen columns.
         frozen.forEach { field ->
             CellValue(
                 entry         = entry,
@@ -471,7 +427,7 @@ fun AirtableRow(
             VerticalDivider()
         }
 
-        // Colonnes scrollables
+        // Scrollable columns.
         Row(Modifier.horizontalScroll(hScroll)) {
             scrollable.forEach { field ->
                 CellValue(
@@ -489,7 +445,7 @@ fun AirtableRow(
 }
 
 // ---------------------------------------------------------------------------
-// En-tête de colonne avec menu contextuel et poignée de redimensionnement
+// Column header with context menu and resize handle.
 // ---------------------------------------------------------------------------
 
 @Composable
@@ -533,8 +489,8 @@ fun ColumnHeader(
         }
 
         // Poignée de redimensionnement.
-        // Utilise un simple offset de drag en pixels, converti en Dp manuellement.
-        // Aucune API gesture complexe — juste un bouton + état local pour la v1.
+        // Uses a simple drag offset in pixels, converted to Dp manually.
+        // No complex gesture API — just a button + local state for v1.
         Box(
             Modifier
                 .align(Alignment.CenterEnd)
@@ -545,7 +501,7 @@ fun ColumnHeader(
                     else Color.Transparent
                 )
                 .clickable {
-                    // Tap sur la poignée → cycle entre largeurs prédéfinies
+                    // Tap on the handle → cycles through preset widths.
                     val nextWidth = when {
                         width < 120.dp -> 160.dp
                         width < 200.dp -> 250.dp
@@ -617,29 +573,31 @@ fun SkeletonRow(fields: List<TellicoField>, columnWidths: Map<String, Dp>) {
 }
 
 @Composable
-fun EmptyCollectionPlaceholder(onImport: () -> Unit) {
+fun EmptyCollectionPlaceholder() {
     Column(
         Modifier.fillMaxSize(),
-        verticalArrangement   = Arrangement.Center,
-        horizontalAlignment   = Alignment.CenterHorizontally
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Icon(
             Icons.Default.Book,
             contentDescription = null,
-            modifier = Modifier.size(80.dp),
-            tint     = MaterialTheme.colorScheme.outlineVariant
+            modifier = Modifier.size(64.dp),
+            tint = MaterialTheme.colorScheme.outline
         )
         Spacer(Modifier.height(16.dp))
         Text(
             stringResource(R.string.empty_collection_hint),
             style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center
         )
-        Spacer(Modifier.height(24.dp))
-        Button(onClick = onImport) {
-            Icon(Icons.Default.FolderOpen, null, Modifier.size(18.dp))
-            Spacer(Modifier.width(8.dp))
-            Text(stringResource(R.string.import_file))
-        }
+        Spacer(Modifier.height(8.dp))
+        Text(
+            stringResource(R.string.empty_collection_hint2),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.outline,
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+        )
     }
 }

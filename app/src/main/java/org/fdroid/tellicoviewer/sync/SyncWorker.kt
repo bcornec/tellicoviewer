@@ -15,19 +15,19 @@ import org.fdroid.tellicoviewer.data.repository.TellicoRepository
 import java.util.concurrent.TimeUnit
 
 /**
- * Worker de synchronisation périodique avec WorkManager.
+ * Periodic synchronisation worker using WorkManager.
  *
- * WorkManager est l'équivalent Android de cron/systemd.
- * Il planifie des tâches qui doivent s'exécuter même si l'app est fermée,
- * avec gestion des contraintes (Wi-Fi requis, batterie non critique...).
+ * WorkManager is the Android equivalent of cron/systemd.
+ * It schedules tasks that must run even when the app is closed,
+ * with constraint management (Wi-Fi required, battery not critical…).
  *
- * @HiltWorker : permet l'injection de dépendances dans le Worker.
- * @Assisted   : paramètres passés par WorkManager (Context et WorkerParameters).
+ * @HiltWorker: enables dependency injection in the Worker.
+ * @Assisted: parameters supplied by WorkManager (Context and WorkerParameters).
  *
  * CONTRAINTES :
- * - Réseau requis (Wi-Fi de préférence)
+ * - Network required (Wi-Fi preferred)
  * - Ne pas s'exécuter si batterie faible
- * - Périodicité : toutes les 6 heures
+ * - Periodicity: every 6 hours
  */
 @HiltWorker
 class SyncWorker @AssistedInject constructor(
@@ -43,7 +43,7 @@ class SyncWorker @AssistedInject constructor(
 
         /**
          * Planifie la synchronisation périodique.
-         * À appeler depuis Settings ou au démarrage si activé.
+         * Call from Settings or at startup if enabled.
          */
         fun schedule(context: Context) {
             val constraints = Constraints.Builder()
@@ -62,7 +62,7 @@ class SyncWorker @AssistedInject constructor(
 
             WorkManager.getInstance(context).enqueueUniquePeriodicWork(
                 WORK_NAME,
-                ExistingPeriodicWorkPolicy.KEEP,  // ne pas remplacer si déjà planifié
+                ExistingPeriodicWorkPolicy.KEEP,  // keep existing work if already scheduled
                 request
             )
         }
@@ -73,12 +73,12 @@ class SyncWorker @AssistedInject constructor(
     }
 
     override suspend fun doWork(): Result {
-        // Afficher une notification de progression (foreground service requis)
+        // Show a progress notification (foreground service required).
         setForeground(createForegroundInfo("Synchronisation en cours..."))
 
         return try {
-            // Dans un vrai scénario, on vérifierait les fichiers sur un serveur distant
-            // Ici : simple vérification de l'état (pas de serveur configuré = no-op)
+            // In a real scenario, check files on a remote server.
+            // Here: simple state check (no server configured = no-op).
             Result.success()
         } catch (e: Exception) {
             if (runAttemptCount < 3) Result.retry() else Result.failure()
@@ -120,8 +120,8 @@ class SyncWorker @AssistedInject constructor(
 }
 
 /**
- * Service de premier plan pour la synchronisation manuelle.
- * Déclaré dans le Manifest.
+ * Foreground service for manual synchronisation.
+ * Declared in the Manifest.
  */
 class SyncForegroundService : android.app.Service() {
     override fun onBind(intent: android.content.Intent?) = null

@@ -8,27 +8,27 @@ import javax.inject.Singleton
 import kotlin.math.max
 
 /**
- * Moteur de recherche avec scoring et fuzzy matching.
+ * Search engine with scoring and fuzzy matching.
  *
  * ALGORITHME :
- * La recherche combine plusieurs stratégies par ordre de précision :
+ * Search combines multiple strategies in order of precision:
  *
- * 1. EXACTE (score 1.0)      : la chaîne entière correspond
- * 2. PRÉFIXE (score 0.9)     : la valeur commence par le terme
- * 3. CONTIENT (score 0.7)    : la valeur contient le terme
+ * 1. EXACT (score 1.0)       : the full chain corresponds
+ * 2. PREFIX (score 0.9)      : value starts with the term
+ * 3. CONTAINS (score 0.7)    : value contains the term
  * 4. FUZZY (score variable)  : distance de Levenshtein normalisée
  *
- * Le score final prend en compte le champ concerné :
- * - Titre : coefficient ×2.0
- * - Champs searchable : coefficient ×1.5
- * - Autres champs : coefficient ×1.0
+ * The final score factors in the field weight:
+ * - Title: weight ×2.0
+ * - Searchable fields: coefficient ×1.5
+ * - Other fields: coefficient ×1.0
  *
  * OPTIMISATION :
- * Pour 10 000 articles, on utilise l'index FTS SQLite (via EntryDao.searchFtsPaged)
- * pour la première passe. Le fuzzy scoring en Kotlin n'est appliqué qu'en mode
- * "recherche avancée" ou sur les résultats FTS pour re-trier.
+ * For 10 000 entries, use the SQLite FTS index (via EntryDao.searchFtsPaged)
+ * for the first pass. Kotlin fuzzy scoring is only applied in
+ * "advanced search" mode or to re-rank FTS results.
  *
- * Analogie : comme grep -i (containment), agrep (fuzzy), et un score TF-IDF simplifié.
+ * Analogy: like grep -i (containment), agrep (fuzzy), and a simplified TF-IDF score.
  */
 @Singleton
 class SearchEngine @Inject constructor() {
@@ -39,13 +39,13 @@ class SearchEngine @Inject constructor() {
     }
 
     /**
-     * Recherche et classement d'une liste d'entrées.
+     * Searches and ranks a list of entries.
      *
-     * @param entries Liste des articles à filtrer
+     * @param entries List of entries to filter
      * @param query   Terme de recherche
-     * @param fields  Schéma pour connaître les types et priorités des champs
-     * @param fieldFilter Restreindre la recherche à un champ spécifique
-     * @return Liste triée par score décroissant
+     * @param fields  Schema to know field types and priorities
+     * @param fieldFilter Restrict search to a specific field
+     * @return List sorted by descending score
      */
     fun search(
         entries: List<TellicoEntry>,
@@ -97,8 +97,8 @@ class SearchEngine @Inject constructor() {
     }
 
     /**
-     * Score de correspondance entre une valeur et la requête.
-     * Retourne un float entre 0.0 (aucune correspondance) et 1.0 (exact).
+     * Match score between a value and the query.
+     * Returns a float between 0.0 (no match) and 1.0 (exact match).
      */
     private fun scoreValue(value: String, query: String): Float {
         // 1. Correspondance exacte
@@ -107,10 +107,10 @@ class SearchEngine @Inject constructor() {
         // 2. Préfixe
         if (value.startsWith(query)) return 0.9f
 
-        // 3. Contient (substring)
+        // 3. Contains (substring).
         if (value.contains(query)) return 0.7f
 
-        // 4. Recherche mot par mot (multi-termes)
+        // 4. Word-by-word search (multi-term).
         val queryWords = query.split("\\s+".toRegex())
         if (queryWords.size > 1) {
             val wordScore = queryWords.count { word -> value.contains(word) }.toFloat() /
@@ -118,12 +118,12 @@ class SearchEngine @Inject constructor() {
             if (wordScore > 0.5f) return wordScore * 0.65f
         }
 
-        // 5. Fuzzy matching (Levenshtein) sur les mots de la valeur
+        // 5. Fuzzy matching (Levenshtein) on value words.
         val valueWords = value.split("\\W+".toRegex())
         val queryWords2 = query.split("\\W+".toRegex())
         var fuzzyScore = 0f
         for (qWord in queryWords2) {
-            if (qWord.length < 3) continue  // trop court pour fuzzy
+            if (qWord.length < 3) continue  // too short for fuzzy
             for (vWord in valueWords) {
                 if (vWord.length < 3) continue
                 val dist = levenshtein(qWord, vWord)
@@ -138,7 +138,7 @@ class SearchEngine @Inject constructor() {
         return fuzzyScore
     }
 
-    /** Coefficient de pondération selon le champ (titre plus important) */
+    /** Field weighting coefficient (title is more important). */
     private fun fieldWeight(field: TellicoField): Float = when {
         field.name == "title"       -> 2.0f
         field.name == "author"      -> 1.8f
@@ -149,10 +149,10 @@ class SearchEngine @Inject constructor() {
     /**
      * Distance de Levenshtein (edit distance).
      *
-     * Mesure le nombre minimum d'opérations (insertion, suppression, substitution)
-     * pour transformer une chaîne en une autre.
+     * Measures the minimum number of operations (insert, delete, substitute)
+     * to transform one string into another.
      *
-     * Implémentation classique avec optimisation mémoire (une seule ligne).
+     * Classic implementation with memory optimisation (single row).
      * Complexité : O(m*n) en temps, O(min(m,n)) en espace.
      *
      * Ex: levenshtein("livre", "livres") = 1

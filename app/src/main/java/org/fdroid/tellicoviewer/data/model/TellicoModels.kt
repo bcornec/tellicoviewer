@@ -1,37 +1,37 @@
 package org.fdroid.tellicoviewer.data.model
 
 /**
- * Modèle de domaine pour une collection Tellico.
+ * Domain model for a Tellico collection.
  *
- * ARCHITECTURE : Ce package contient les "Plain Old Kotlin Objects" (POKO),
- * indépendants d'Android et de Room. En Clean Architecture, ce sont les
- * entités du "Domain Layer" — elles ne connaissent ni la base de données,
+ * ARCHITECTURE: This package contains Plain Old Kotlin Objects (POKO),
+ * independent of Android and Room. In Clean Architecture these are the
+ * "Domain Layer" entities — they know nothing about the database,
  * ni l'interface utilisateur.
  *
- * Analogie C : ce sont les structs de base, sans dépendance à aucune lib.
+ * C analogy: plain structs with no library dependencies.
  */
 
 // ---------------------------------------------------------------------------
-// Types de champs supportés par Tellico
-// Correspond aux attributs "type" dans le XML Tellico
+// Field types supported by Tellico.
+// Matches the "type" attribute in Tellico XML.
 // ---------------------------------------------------------------------------
 
 /**
- * Énumération des types de champs Tellico.
- * Chaque type détermine comment la valeur est affichée et filtrée.
+ * Enumeration of Tellico field types.
+ * Each type determines how values are displayed and filtered.
  */
 enum class FieldType(val xmlValue: String) {
-    LINE("1"),         // Texte simple (titre, auteur...)
+    LINE("1"),         // Single-line text (title, author…)
     PARA("2"),         // Paragraphe (synopsis, description)
-    CHOICE("3"),       // Liste de choix prédéfinis (genre, format...)
+    CHOICE("3"),       // Predefined choice list (genre, format…)
     CHECKBOX("4"),     // Booléen (lu/non lu, possédé...)
-    NUMBER("6"),       // Entier (année, pages, piste...)
+    NUMBER("6"),       // Integer (year, pages, track…)
     URL("7"),          // Lien URL
-    TABLE("8"),        // Tableau multi-valeurs (acteurs, tags...)
-    IMAGE("10"),       // Image embarquée
+    TABLE("8"),        // Multi-value table (actors, tags…)
+    IMAGE("10"),       // Embedded image
     DATE("12"),        // Date
     RATING("14"),      // Note (1-5 étoiles)
-    TABLE2("15");      // Tableau à 2 colonnes
+    TABLE2("15");      // Two-column table
 
     companion object {
         fun fromXmlValue(v: String): FieldType =
@@ -40,22 +40,22 @@ enum class FieldType(val xmlValue: String) {
 }
 
 // ---------------------------------------------------------------------------
-// Modèle d'un champ de collection (métadonnée de schéma)
+// Collection field model (schema metadata)
 // ---------------------------------------------------------------------------
 
 /**
- * Représente un champ (colonne) défini dans le fichier Tellico.
+ * Represents a field (column) defined in the Tellico file.
  *
  * Exemple XML Tellico :
  * <field name="title" title="Title" type="1" flags="8" category="General" />
  *
  * @param name      Identifiant interne (ex: "title", "author", "year")
- * @param title     Label affiché à l'utilisateur (localisé dans le fichier TC)
- * @param type      Type de données
- * @param category  Groupe d'appartenance pour organiser l'interface
+ * @param title     Label shown to the user (localised in the TC file)
+ * @param type      Data type
+ * @param category  Group for organising the UI
  * @param flags     Bitmask Tellico (requis=1, multiple=2, groupable=4, searchable=8...)
- * @param allowed   Pour CHOICE : liste des valeurs autorisées
- * @param defaultValue Valeur par défaut
+ * @param allowed   For CHOICE: list of permitted values
+ * @param defaultValue Default value
  */
 data class TellicoField(
     val name: String,
@@ -75,30 +75,30 @@ data class TellicoField(
 }
 
 // ---------------------------------------------------------------------------
-// Modèle d'une entrée (un article de la collection)
+// Model for a single collection entry.
 // ---------------------------------------------------------------------------
 
 /**
- * Représente un article de la collection (un livre, un CD, un film...).
+ * Represents a collection entry (a book, CD, film…).
  *
- * Les valeurs des champs sont stockées dans une Map<String, String>
- * car le schéma est dynamique (inconnu à la compilation).
- * C'est l'équivalent d'une row dans une table SQL avec des colonnes variables,
- * ou d'un hash Perl : %entry = (title => "...", author => "...", year => "2020").
+ * Field values are stored in a Map<String, String>
+ * because the schema is dynamic (unknown at compile time).
+ * Equivalent to a SQL row with variable columns,
+ * or a Perl hash: %entry = (title => "...", author => "...", year => "2020").
  *
  * @param id        Identifiant unique Tellico (attribut id= de la balise <entry>)
- * @param fields    Map nom_champ -> valeur(s) sérialisée(s) en JSON
- * @param imageIds  Liste des identifiants d'images associées à cet article
+ * @param fields    Map field_name -> serialised value(s) in JSON
+ * @param imageIds  List of image identifiers associated with this entry
  */
 data class TellicoEntry(
     val id: Int,
-    val fields: Map<String, String>,   // clé = TellicoField.name
+    val fields: Map<String, String>,   // key = TellicoField.name
     val imageIds: List<String> = emptyList()
 ) {
-    /** Récupère la valeur d'un champ, chaîne vide si absent */
+    /** Returns the value of a field, empty string if absent. */
     fun getValue(fieldName: String): String = fields[fieldName] ?: ""
 
-    /** Récupère un champ multi-valeurs (TABLE) comme liste */
+    /** Returns a multi-value field (TABLE) as a list. */
     fun getList(fieldName: String): List<String> =
         fields[fieldName]
             ?.split(LIST_SEPARATOR)
@@ -106,24 +106,24 @@ data class TellicoEntry(
             ?: emptyList()
 
     companion object {
-        const val LIST_SEPARATOR = "::"  // séparateur utilisé par Tellico dans son XML
+        const val LIST_SEPARATOR = "::"  // separator used by Tellico XML for multi-value fields
     }
 }
 
 // ---------------------------------------------------------------------------
-// Modèle de la collection complète (métadonnées + données)
+// Full collection model (metadata + data)
 // ---------------------------------------------------------------------------
 
 /**
- * Collection Tellico complète, telle que lue depuis un fichier .tc.
+ * Complete Tellico collection as read from a .tc file.
  *
- * @param id            Identifiant numérique de la collection dans le fichier
- * @param title         Nom de la collection (ex: "Ma cinémathèque")
- * @param type          Type Tellico (2=Livres, 3=Vidéos, 4=Musique, etc.)
- * @param fields        Schéma : liste ordonnée des champs
- * @param entries       Données : liste des articles
+ * @param id            Numeric collection identifier in the file
+ * @param title         Collection name (e.g. "My Film Library")
+ * @param type          Tellico type (2=Books, 3=Videos, 4=Music, etc.)
+ * @param fields        Schema: ordered list of fields
+ * @param entries       Data: list of entries
  * @param images        Images embarquées : id -> bytes PNG/JPEG
- * @param sourceFile    Chemin local du fichier .tc importé
+ * @param sourceFile    Local path of the imported .tc file
  */
 data class TellicoCollection(
     val id: Int = 0,
@@ -134,19 +134,19 @@ data class TellicoCollection(
     val images: Map<String, ByteArray> = emptyMap(),
     val sourceFile: String = ""
 ) {
-    /** Champs visibles par défaut dans la liste (searchable ou les 3 premiers) */
+    /** Fields visible by default in the list (searchable or first 3). */
     val primaryFields: List<TellicoField>
         get() = fields.filter { it.isSearchable }.take(5)
             .ifEmpty { fields.take(3) }
 }
 
 // ---------------------------------------------------------------------------
-// Types de collections prédéfinis par Tellico
+// Collection types predefined by Tellico.
 // ---------------------------------------------------------------------------
 
 /**
  * Types de collections connus de Tellico.
- * Le XML Tellico contient un attribut "type" sur la balise <collection>.
+ * Tellico XML has a "type" attribute on the <collection> tag.
  */
 enum class CollectionType(val xmlValue: String, val labelKey: String) {
     BOOKS("2",      "collection_type_books"),
@@ -166,16 +166,16 @@ enum class CollectionType(val xmlValue: String, val labelKey: String) {
 }
 
 // ---------------------------------------------------------------------------
-// Résultat de recherche avec score de pertinence
+// Search result with relevance score.
 // ---------------------------------------------------------------------------
 
 /**
- * Article enrichi d'un score de pertinence pour la recherche.
- * Le score permet le tri par pertinence (fuzzy search ranking).
+ * Entry enriched with a relevance score for search.
+ * The score enables sorting by relevance (fuzzy search ranking).
  *
- * @param entry     L'article Tellico original
+ * @param entry     The original Tellico entry
  * @param score     Score de pertinence (0.0 = aucune correspondance, 1.0 = parfait)
- * @param matches   Map champ -> fragment mis en évidence
+ * @param matches   Map field -> highlighted fragment
  */
 data class ScoredEntry(
     val entry: TellicoEntry,

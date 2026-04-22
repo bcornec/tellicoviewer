@@ -16,17 +16,17 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Repository de préférences de champs par collection.
+ * Field preference repository keyed by collection.
  *
- * Stocke dans DataStore (fichier de préférences persistant) :
+ * Stores in DataStore (persistent preferences file):
  * - Quels champs sont visibles/cachés
- * - L'ordre d'affichage des colonnes
+ * - Display order of columns
  *
- * DataStore est l'équivalent Android d'un fichier ~/.config/apprc :
- * persistant, thread-safe, asynchrone via Flow.
+ * DataStore is the Android equivalent of ~/.config/apprc:
+ * persistent, thread-safe, asynchronous via Flow.
  */
 
-// Extension pour créer le DataStore (singleton au niveau Application)
+// Extension property to create the DataStore (Application-level singleton).
 private val Context.fieldPrefsDataStore: DataStore<Preferences>
     by preferencesDataStore(name = "field_preferences")
 
@@ -34,7 +34,7 @@ private val Context.fieldPrefsDataStore: DataStore<Preferences>
 data class FieldPreference(
     val fieldName: String,
     val visible: Boolean = true,
-    val sortOrder: Int = 0    // ordre d'affichage dans la grille
+    val sortOrder: Int = 0    // display order in the grid
 )
 
 @Singleton
@@ -43,14 +43,14 @@ class FieldPreferenceRepository @Inject constructor(
 ) {
     private val json = Json { ignoreUnknownKeys = true }
 
-    /** Clé DataStore pour une collection donnée */
+    /** DataStore key for a given collection. */
     private fun prefsKey(collectionId: Long) =
         stringPreferencesKey("field_prefs_$collectionId")
 
     /**
-     * Observe les préférences de champs pour une collection.
-     * Retourne la liste vide si aucune préférence n'a encore été définie
-     * (dans ce cas, tous les champs sont considérés visibles).
+     * Observes field preferences for a collection.
+     * Returns an empty list if no preferences have been saved yet,
+     * in which case all fields are treated as visible.
      */
     fun observeFieldPreferences(collectionId: Long): Flow<List<FieldPreference>> =
         context.fieldPrefsDataStore.data.map { prefs ->
@@ -59,7 +59,7 @@ class FieldPreferenceRepository @Inject constructor(
         }
 
     /**
-     * Sauvegarde les préférences de champs pour une collection.
+     * Saves field visibility/order preferences for a collection.
      */
     suspend fun saveFieldPreferences(
         collectionId: Long,
@@ -70,13 +70,33 @@ class FieldPreferenceRepository @Inject constructor(
         }
     }
 
+    // ------------------------------------------------------------------
+    // Column widths  (stored as Map<fieldName, widthDp>)
+    // ------------------------------------------------------------------
+
+    private fun widthsKey(collectionId: Long) =
+        stringPreferencesKey("col_widths_$collectionId")
+
+    /** Observes the column width overrides for a collection. */
+    fun observeColumnWidths(collectionId: Long): Flow<Map<String, Int>> =
+        context.fieldPrefsDataStore.data.map { prefs ->
+            val raw = prefs[widthsKey(collectionId)] ?: return@map emptyMap()
+            try { json.decodeFromString(raw) } catch (_: Exception) { emptyMap() }
+        }
+
+    /** Persists column width overrides for a collection. */
+    suspend fun saveColumnWidths(collectionId: Long, widths: Map<String, Int>) {
+        context.fieldPrefsDataStore.edit { prefs ->
+            prefs[widthsKey(collectionId)] = json.encodeToString(widths)
+        }
+    }
+
     /**
-     * Retourne la liste des champs visibles dans l'ordre d'affichage.
-     * Si aucune préférence, retourne null (= afficher tous les champs).
+     * Returns the ordered list of visible field names.
+     * Returns null if no preferences have been saved (show all fields).
      */
     suspend fun getVisibleFieldNames(collectionId: Long): List<String>? {
-        val prefs = context.fieldPrefsDataStore.data
-        // Lecture synchrone via first() — appelé depuis une coroutine
-        return null  // géré via le Flow dans le ViewModel
+        // Managed reactively via the Flow in the ViewModel.
+        return null
     }
 }

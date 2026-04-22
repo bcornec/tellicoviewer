@@ -1,29 +1,32 @@
 Categories:
   - Multimedia
   - Reading
+
 License: GPL-3.0-only
-AuthorName: Bruno Cornec
-AuthorEmail: bruno@musique-ancienne.org
-AuthorWebSite: https://github.com/bcornec
-WebSite: https://github.com/bcornec/tellicoviewer
-SourceCode: https://github.com/bcornec/tellicoviewer
-IssueTracker: https://github.com/bcornec/tellicoviewer/issues
-Changelog: https://github.com/bcornec/tellicoviewer/releases
+
+WebSite: https://codeberg.org/tellicoviewer/tellicoviewer
+SourceCode: https://codeberg.org/tellicoviewer/tellicoviewer
+IssueTracker: https://codeberg.org/tellicoviewer/tellicoviewer/issues
+Changelog: https://codeberg.org/tellicoviewer/tellicoviewer/releases
 
 AutoName: TellicoViewer
 
 RepoType: git
-Repo: https://github.com/bcornec/tellicoviewer.git
+Repo: https://codeberg.org/tellicoviewer/tellicoviewer
 
 Builds:
-  - versionName: 1.1.16
-    versionCode: 20
-    commit: 1.1.16
+  - versionName: 1.0.0
+    versionCode: 1
+    commit: v1.0.0
     subdir: app
     gradle:
-      - yes
+      - release
+    prebuild:
+      - sed -i 's/fallbackToDestructiveMigration()/fallbackToDestructiveMigration()/g' build.gradle.kts
+    scandelete:
+      - gradle/wrapper/gradle-wrapper.jar
 
 AutoUpdateMode: Version
 UpdateCheckMode: Tags
-CurrentVersion: 1.1.16
-CurrentVersionCode: 20
+CurrentVersion: 1.0.0
+CurrentVersionCode: 1

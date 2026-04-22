@@ -5,23 +5,23 @@ import androidx.room.*
 import kotlinx.coroutines.flow.Flow
 
 /**
- * DAOs (Data Access Objects) Room.
+ * Room DAOs (Data Access Objects).
  *
- * Room génère l'implémentation SQL à la compilation via KSP.
- * Chaque @Query est validée statiquement — les erreurs SQL sont des erreurs de build.
+ * Room generates SQL implementations at compile time via KSP.
+ * Each @Query is validated statically — SQL errors are build errors.
  *
- * NOTE FTS : Room + FTS4 avec contentEntity a deux contraintes importantes :
- *  1. `rank` n'est PAS disponible dans FTS4 (c'est FTS5 seulement).
- *     → On utilise ORDER BY rowid DESC (ordre d'insertion) ou cachedTitle.
- *  2. La jointure FTS↔entries doit utiliser fts.rowid = e.id (Room génère
- *     la table FTS avec rowid = id de la table source).
- *  3. Pour retourner un PagingSource depuis une requête FTS avec JOIN,
- *     il faut que la requête retourne EntryEntity via e.* et que la table
- *     principale (entries) soit celle dans FROM.
+ * NOTE FTS: Room + FTS4 with contentEntity has two key constraints:
+ *  1. `rank` is NOT available in FTS4 (FTS5 only).
+ *     → Use ORDER BY rowid DESC (insertion order) or cachedTitle.
+ *  2. The FTS↔entries join must use fts.rowid = e.id (Room generates
+ *     the FTS table with rowid = id of the source table).
+ *  3. To return a PagingSource from an FTS query with JOIN,
+ *     the query must return EntryEntity via e.* with the main table
+ *     (entries) in the FROM clause.
  */
 
 // ---------------------------------------------------------------------------
-// DAO des collections
+// Collections DAO.
 // ---------------------------------------------------------------------------
 
 @Dao
@@ -63,7 +63,7 @@ interface CollectionDao {
 }
 
 // ---------------------------------------------------------------------------
-// DAO des champs (schéma)
+// Fields (schema) DAO.
 // ---------------------------------------------------------------------------
 
 @Dao
@@ -83,13 +83,13 @@ interface FieldDao {
 }
 
 // ---------------------------------------------------------------------------
-// DAO des entrées (articles)
+// Entries DAO.
 // ---------------------------------------------------------------------------
 
 @Dao
 interface EntryDao {
 
-    // ---- PagingSources pour l'affichage en liste ----
+    // PagingSources for paginated list display.
 
     @Query("SELECT * FROM entries WHERE collectionId = :collectionId ORDER BY cachedTitle ASC")
     fun pagingSourceByTitle(collectionId: Long): PagingSource<Int, EntryEntity>
@@ -99,18 +99,18 @@ interface EntryDao {
 
     // ---- Recherche FTS ----
     //
-    // POURQUOI CETTE APPROCHE :
-    // FTS4 avec contentEntity ne supporte pas ORDER BY rank (c'est FTS5).
-    // La solution correcte pour Room + FTS4 :
-    //   1. Requête FTS pour obtenir les rowids correspondants
-    //   2. Requête principale sur entries avec WHERE id IN (...)
+    // WHY THIS APPROACH:
+    // FTS4 with contentEntity does not support ORDER BY rank (that is FTS5).
+    // Correct solution for Room + FTS4:
+    //   1. FTS query to get matching rowids.
+    //   2. Main query on entries with WHERE id IN (...)
     //
-    // Pour un PagingSource, on utilise une requête SQL qui fait la jointure
-    // correctement sans utiliser `rank`.
+    // For a PagingSource, use a SQL query that performs the join
+    // correctly without using `rank`.
     //
-    // La colonne `entries_fts.rowid` correspond à `entries.id` (Room FTS contentEntity).
+    // The `entries_fts.rowid` column maps to `entries.id` (Room FTS contentEntity).
     //
-    // MATCH supporte : "mot*" (préfixe), "mot1 mot2" (ET), "mot1 OR mot2"
+    // MATCH support : "mot*" (préfix), "mot1 mot2" (ET), "mot1 OR mot2"
 
     @Query("""
         SELECT e.* FROM entries e
@@ -123,12 +123,12 @@ interface EntryDao {
     """)
     fun searchFtsPaged(collectionId: Long, query: String): PagingSource<Int, EntryEntity>
 
-    // ---- Filtre par champ (json_extract) ----
+    // ---- Field filter (json_extract) ----
     //
-    // json_extract(json, '$.key') extrait la valeur de la clé dans le JSON.
-    // Disponible dans SQLite 3.38+ (Android 12+) et partiellement avant.
-    // Pour compatibilité Android 8+ (API 26), on utilise LIKE sur fieldValues entier
-    // en fallback — moins précis mais universel.
+    // json_extract(json, '$.key') extracts the value for a key from JSON.
+    // Available in SQLite 3.38+ (Android 12+), partially supported before.
+    // For Android 8+ (API 26) compatibility, fall back to LIKE on the full fieldValues
+    // — less precise but universal.
 
     @Query("""
         SELECT * FROM entries
@@ -164,11 +164,11 @@ interface EntryDao {
     @Query("DELETE FROM entries WHERE collectionId = :collectionId")
     suspend fun deleteForCollection(collectionId: Long)
 
-    // ---- Valeurs distinctes pour les filtres ----
+    // ---- Distinct values for filters ----
     //
-    // Retourne les valeurs distinctes d'un champ pour alimenter les menus de filtre.
-    // json_extract() avec '$.' || fieldName extrait la clé dynamiquement.
-    // LIMIT 200 : évite de surcharger l'UI avec trop de choix.
+    // Returns distinct values for a field to populate filter menus.
+    // json_extract() with '$.' || fieldName extracts the key dynamically.
+    // LIMIT 200: avoids overwhelming the UI with too many choices.
 
     @Query("""
         SELECT DISTINCT json_extract(fieldValues, '$.' || :fieldName) AS val
@@ -182,7 +182,7 @@ interface EntryDao {
 }
 
 // ---------------------------------------------------------------------------
-// DAO des images
+// Images DAO.
 // ---------------------------------------------------------------------------
 
 @Dao
@@ -207,7 +207,7 @@ interface ImageDao {
     suspend fun listImagesForCollection(collectionId: Long): List<ImageMetadata>
 }
 
-/** Métadonnées d'image sans le BLOB binaire (pour lister sans tout charger en RAM) */
+/** Image metadata without the binary BLOB (list without loading data into RAM). */
 data class ImageMetadata(
     val id: Long,
     val collectionId: Long,

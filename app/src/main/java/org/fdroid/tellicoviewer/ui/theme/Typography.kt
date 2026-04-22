@@ -7,13 +7,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 
 /**
- * Typographie Material 3 pour TellicoViewer.
- * On utilise la police système (FontFamily.Default) pour le rendu natif.
- * Pour une police personnalisée, on ajouterait les fichiers .ttf dans res/font/
+ * Material 3 typography for TellicoViewer.
+ * Using the system font (FontFamily.Default) for native rendering.
+ * For a custom font, add .ttf files in res/font/
  * et on déclarerait un FontFamily ici.
  */
 val TellicoTypography = Typography(
-    // Titre principal (nom de la collection)
+    // Main title (collection name).
     headlineMedium = TextStyle(
         fontFamily = FontFamily.Default,
         fontWeight = FontWeight.SemiBold,
@@ -21,21 +21,21 @@ val TellicoTypography = Typography(
         lineHeight = 32.sp,
         letterSpacing = (-0.3).sp
     ),
-    // Sous-titre (catégorie, nombre d'articles)
+    // Subtitle (category, entry count).
     titleMedium = TextStyle(
         fontFamily = FontFamily.Default,
         fontWeight = FontWeight.Medium,
         fontSize   = 16.sp,
         lineHeight = 24.sp
     ),
-    // Texte normal (valeur de champ)
+    // Body text (field value).
     bodyMedium = TextStyle(
         fontFamily = FontFamily.Default,
         fontWeight = FontWeight.Normal,
         fontSize   = 14.sp,
         lineHeight = 20.sp
     ),
-    // Texte compact (en-têtes de colonnes, labels)
+    // Compact text (column headers, labels).
     labelSmall = TextStyle(
         fontFamily = FontFamily.Default,
         fontWeight = FontWeight.Medium,

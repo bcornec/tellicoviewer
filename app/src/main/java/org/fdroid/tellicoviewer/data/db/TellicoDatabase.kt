@@ -7,16 +7,16 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
 /**
- * Classe principale de la base de données Room.
+ * Main Room database class.
  *
- * @Database déclare les tables (entities) et la version du schéma.
- * En cas de migration (ajout de colonne, nouvelle table), on incrémente
- * la version et on fournit un objet Migration — Room applique le delta SQL.
+ * @Database declares the tables (entities) and schema version.
+ * When migrating (adding a column, new table), increment
+ * the version and provide a Migration object — Room applies the SQL delta.
  *
- * Analogie : c'est comme un singleton qui wrape une connexion sqlite3.
- * Room gère le pool de connexions, les transactions et la thread-safety.
+ * Analogy: like a singleton wrapping an sqlite3 connection.
+ * Room manages the connection pool, transactions and thread-safety.
  *
- * La base est instanciée UNE SEULE FOIS via Hilt (voir DatabaseModule).
+ * The database is instantiated ONCE via Hilt (see DatabaseModule).
  * Elle vit pendant toute la durée de vie de l'application.
  */
 @Database(
@@ -28,7 +28,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         ImageEntity::class
     ],
     version = 2,
-    exportSchema = true   // exporte le schéma JSON pour versionner les migrations
+    exportSchema = true   // exports JSON schema to version migrations
 )
 @TypeConverters(Converters::class)
 abstract class TellicoDatabase : RoomDatabase() {
@@ -42,8 +42,8 @@ abstract class TellicoDatabase : RoomDatabase() {
         const val DATABASE_NAME = "tellico_viewer.db"
 
         /**
-         * Migration v1→v2 : ajout de imageBasePath dans la table collections.
-         * ALTER TABLE est la façon SQLite d'ajouter une colonne sans recréer la table.
+         * Migration v1→v2: adds imageBasePath column to the collections table.
+         * ALTER TABLE is the SQLite way to add a column without recreating the table.
          */
         val MIGRATION_1_2 = object : Migration(1, 2) {
             override fun migrate(db: SupportSQLiteDatabase) {

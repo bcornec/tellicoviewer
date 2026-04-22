@@ -18,10 +18,10 @@ import org.fdroid.tellicoviewer.data.repository.TellicoRepository
 import javax.inject.Inject
 
 /**
- * ViewModel de l'écran principal (liste des collections et des articles).
+ * ViewModel for the main screen (collection list and entries).
  *
- * Survit aux rotations d'écran. Expose l'état UI via StateFlow (immuable depuis l'extérieur).
- * Coordonne import, recherche et pagination sans connaître l'UI Compose.
+ * Survives screen rotation. Exposes UI state via StateFlow (immutable from outside).
+ * Coordinates import, search and pagination without knowing the Compose UI.
  */
 @HiltViewModel
 class CollectionListViewModel @Inject constructor(
@@ -30,7 +30,7 @@ class CollectionListViewModel @Inject constructor(
 ) : ViewModel() {
 
     // ---------------------------------------------------------------------------
-    // État UI
+    // UI state.
     // ---------------------------------------------------------------------------
 
     val collections: StateFlow<List<CollectionWithFieldCount>> =
@@ -39,14 +39,14 @@ class CollectionListViewModel @Inject constructor(
 
     private val _selectedCollectionId = MutableStateFlow<Long?>(null)
     
-    /** Trigger pour forcer un recalcul des champs visibles après changement de prefs */
+    /** Trigger to force a recompute of visible fields after prefs change. */
     private val _prefsTrigger = MutableStateFlow(0L)
     val selectedCollectionId: StateFlow<Long?> = _selectedCollectionId.asStateFlow()
 
     /**
-     * imageBasePath de la collection sélectionnée — lu directement depuis Room.
-     * On n'utilise plus le StateFlow `collections` comme intermédiaire pour éviter
-     * les problèmes de timing lors d'un réimport (suppression + recréation de collection).
+     * imageBasePath of the selected collection — read directly from Room.
+     * We no longer use the `collections` StateFlow as an intermediary to avoid
+     * timing issues during re-import (collection deletion + recreation).
      */
     @OptIn(ExperimentalCoroutinesApi::class)
     val imageBasePath: StateFlow<String?> =
@@ -70,24 +70,24 @@ class CollectionListViewModel @Inject constructor(
     val importState: StateFlow<ImportState> = _importState.asStateFlow()
 
     /**
-     * Champs visibles et ordonnés selon les préférences de l'utilisateur.
-     * Réactif : se met à jour quand la collection change OU quand les préférences changent.
+     * Fields visible and ordered according to user preferences.
+     * Reactive: updates when the collection changes OR when preferences change.
      */
     @OptIn(ExperimentalCoroutinesApi::class)
     val fields: StateFlow<List<TellicoField>> =
         _selectedCollectionId
             .filterNotNull()
             .flatMapLatest { id ->
-                // Combiner les champs bruts avec les préférences de visibilité/ordre
+                // Combine raw fields with visibility/order preferences.
                 kotlinx.coroutines.flow.combine(
                     repository.observeFields(id),
                     prefRepository.observeFieldPreferences(id),
                     _prefsTrigger
                 ) { rawFields, prefs, _ ->
                     if (prefs.isEmpty()) {
-                        rawFields  // pas encore de préférences → tout afficher
+                        rawFields  // no preferences yet → show all fields
                     } else {
-                        // Filtrer les champs cachés et trier selon l'ordre des préférences
+                        // Filter hidden fields and sort by preference order.
                         val prefMap = prefs.associateBy { it.fieldName }
                         rawFields
                             .filter { field -> prefMap[field.name]?.visible != false }
@@ -167,21 +167,31 @@ class CollectionListViewModel @Inject constructor(
 
     fun clearImportState() { _importState.value = ImportState.Idle }
 
-    /** Permet à l'utilisateur de configurer manuellement le répertoire d'images */
+    /** Lets the user manually configure the images directory. */
     fun setImageBasePath(collectionId: Long, path: String?) {
         viewModelScope.launch {
             repository.updateImageBasePath(collectionId, path)
         }
     }
 
-    /** Appelé après retour de FieldConfigScreen pour forcer la mise à jour des colonnes */
+    /** Column widths saved by the prefs screen (keyed by field name, value in Int dp). */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val savedColumnWidths: StateFlow<Map<String, Int>> =
+        _selectedCollectionId
+            .flatMapLatest { id ->
+                if (id == null) kotlinx.coroutines.flow.flowOf(emptyMap())
+                else prefRepository.observeColumnWidths(id)
+            }
+            .stateIn(viewModelScope, SharingStarted.Lazily, emptyMap())
+
+    /** Called when returning from prefs screen to force a field-preference refresh. */
     fun refreshFieldPreferences() {
         _prefsTrigger.value = System.currentTimeMillis()
     }
 
     /**
-     * Retourne les valeurs distinctes d'un champ pour le dialog de filtre.
-     * Suspend fun : appelée depuis un LaunchedEffect (CoroutineScope fourni par Compose).
+     * Returns distinct values for a field for the filter dialog.
+     * Suspend fun: called from a LaunchedEffect (CoroutineScope provided by Compose).
      */
     suspend fun getDistinctValues(fieldName: String): List<String> {
         val collId = _selectedCollectionId.value ?: return emptyList()
@@ -190,7 +200,7 @@ class CollectionListViewModel @Inject constructor(
 }
 
 // ---------------------------------------------------------------------------
-// Data classes d'état UI
+// UI state data classes.
 // ---------------------------------------------------------------------------
 
 sealed class ImportState {
