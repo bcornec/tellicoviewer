@@ -53,8 +53,8 @@
 # ---------------------------------------------------------------------------
 # Modèles de domaine TellicoViewer
 # ---------------------------------------------------------------------------
--keep class org.fdroid.tellicoviewer.data.model.** { *; }
--keep class org.fdroid.tellicoviewer.data.db.** { *; }
+-keep class org.hyper_linux.tellicoviewer.data.model.** { *; }
+-keep class org.hyper_linux.tellicoviewer.data.db.** { *; }
 
 # ---------------------------------------------------------------------------
 # Coil (chargement d'images)

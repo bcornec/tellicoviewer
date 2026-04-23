@@ -13,11 +13,11 @@ plugins {
 }
 
 android {
-    namespace         = "org.fdroid.tellicoviewer"
+    namespace         = "org.hyper_linux.tellicoviewer"
     compileSdk        = 34
 
     defaultConfig {
-        applicationId         = "org.fdroid.tellicoviewer"
+        applicationId         = "org.hyper_linux.tellicoviewer"
         minSdk                = 26   // Android 8 (2017) : bon équilibre couverture/modernité
         targetSdk             = 34
         versionCode           = 28
