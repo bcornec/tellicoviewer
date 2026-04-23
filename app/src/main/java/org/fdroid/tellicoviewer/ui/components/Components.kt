@@ -33,6 +33,12 @@ import org.fdroid.tellicoviewer.ui.screens.list.CollectionListViewModel
 import org.fdroid.tellicoviewer.ui.screens.list.FieldFilter
 import org.fdroid.tellicoviewer.ui.screens.list.ImportState
 import androidx.compose.ui.unit.sp
+import android.app.LocaleManager
+import android.content.Context
+import android.os.Build
+import android.os.LocaleList
+import androidx.appcompat.app.AppCompatDelegate
+import androidx.core.os.LocaleListCompat
 
 // ---------------------------------------------------------------------------
 // Title bar / search.
@@ -119,6 +125,7 @@ fun CollectionSidePanel(
     onSelect: (Long) -> Unit,
     onDelete: (Long) -> Unit,
     onSyncClick: () -> Unit = {},
+    onLanguageClick: () -> Unit = {},
     onAboutClick: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
@@ -183,6 +190,12 @@ fun CollectionSidePanel(
                 Text(stringResource(R.string.sync),
                      style = MaterialTheme.typography.labelMedium,
                      color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            TextButton(onClick = onLanguageClick) {
+                Text(
+                    stringResource(R.string.language_flag),
+                    style = MaterialTheme.typography.labelMedium.copy(fontSize = 18.sp)
+                )
             }
             TextButton(onClick = onAboutClick) {
                 Icon(Icons.Default.Info, null, Modifier.size(18.dp),
@@ -711,3 +724,106 @@ fun ImagePathDialog(
         }
     )
 }
+
+// ---------------------------------------------------------------------------
+// Language picker dialog
+// ---------------------------------------------------------------------------
+
+data class LanguageOption(
+    val code: String,   // BCP-47 tag used by the Android locale API
+    val flag: String,   // emoji flag
+    val label: String   // display name in that language
+)
+
+val SUPPORTED_LANGUAGES = listOf(
+    LanguageOption("en", "🇬🇧", "English"),
+    LanguageOption("fr", "🇫🇷", "Français")
+)
+
+/**
+ * Applies the chosen locale at runtime.
+ * - Android 13+ (API 33): uses the per-app LocaleManager API.
+ * - Android 8-12: falls back to AppCompatDelegate (requires Activity restart).
+ */
+fun applyLocale(context: Context, languageCode: String) {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        context.getSystemService(LocaleManager::class.java)
+            .applicationLocales = LocaleList.forLanguageTags(languageCode)
+    } else {
+        AppCompatDelegate.setApplicationLocales(
+            LocaleListCompat.forLanguageTags(languageCode)
+        )
+    }
+}
+
+/** Returns the BCP-47 code of the currently active locale. */
+fun currentLanguageCode(context: Context): String {
+    return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        val tag = context.getSystemService(LocaleManager::class.java)
+            .applicationLocales.toLanguageTags()
+        if (tag.isNotEmpty()) tag.substringBefore('-') else "en"
+    } else {
+        val tag = AppCompatDelegate.getApplicationLocales().toLanguageTags()
+        if (tag.isNotEmpty()) tag.substringBefore('-') else "en"
+    }
+}
+
+@Composable
+fun LanguagePickerDialog(onDismiss: () -> Unit) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val current = remember { currentLanguageCode(context) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        icon  = {
+            Text("🌐", style = MaterialTheme.typography.headlineMedium)
+        },
+        title = { Text(stringResource(R.string.language_choose)) },
+        text  = {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                SUPPORTED_LANGUAGES.forEach { lang ->
+                    val isSelected = lang.code == current
+                    Surface(
+                        onClick = {
+                            applyLocale(context, lang.code)
+                            onDismiss()
+                        },
+                        shape  = MaterialTheme.shapes.small,
+                        color  = if (isSelected) MaterialTheme.colorScheme.primaryContainer
+                                 else MaterialTheme.colorScheme.surface,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            Text(lang.flag, style = MaterialTheme.typography.titleLarge)
+                            Text(
+                                lang.label,
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer
+                                        else MaterialTheme.colorScheme.onSurface,
+                                modifier = Modifier.weight(1f)
+                            )
+                            if (isSelected) {
+                                Icon(
+                                    Icons.Default.Check,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.cancel))
+            }
+        }
+    )
+}
+

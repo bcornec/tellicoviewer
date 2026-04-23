@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Declares the locales supported by this app.
+     Required on Android 13+ (API 33+) for the system to correctly
+     select the right values-XX/ resource directory. -->
+<locale-config xmlns:android="http://schemas.android.com/apk/res/android">
+    <locale android:name="en"/>
+    <locale android:name="fr"/>
+</locale-config>

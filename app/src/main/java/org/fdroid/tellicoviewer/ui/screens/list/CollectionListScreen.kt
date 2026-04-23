@@ -109,6 +109,7 @@ import org.fdroid.tellicoviewer.ui.components.CollectionSidePanel
 import org.fdroid.tellicoviewer.ui.components.FieldFilterDialog
 import org.fdroid.tellicoviewer.ui.components.FieldTypeIcon
 import org.fdroid.tellicoviewer.ui.components.AboutDialog
+import org.fdroid.tellicoviewer.ui.components.LanguagePickerDialog
 import org.fdroid.tellicoviewer.ui.components.ImportProgressDialog
 import org.fdroid.tellicoviewer.ui.components.TellicoTopBar
 import org.fdroid.tellicoviewer.ui.theme.TellicoColors
@@ -141,7 +142,8 @@ fun CollectionListScreen(
     val savedWidths    by viewModel.savedColumnWidths.collectAsStateWithLifecycle()
     var frozenField  by remember { mutableStateOf<String?>(null) }
     var showFilterDialog by remember { mutableStateOf(false) }
-    var showAboutDialog by remember { mutableStateOf(false) }
+    var showAboutDialog    by remember { mutableStateOf(false) }
+    var showLanguageDialog by remember { mutableStateOf(false) }
     var showDrawer       by remember { mutableStateOf(true) }
 
     // File picker launcher for .tc files.
@@ -206,8 +208,9 @@ fun CollectionListScreen(
                     selectedId   = selectedId,
                     onSelect     = viewModel::selectCollection,
                     onDelete     = viewModel::deleteCollection,
-                    onSyncClick  = onSyncClick,
-                    onAboutClick = { showAboutDialog = true },
+                    onSyncClick    = onSyncClick,
+                    onLanguageClick = { showLanguageDialog = true },
+                    onAboutClick   = { showAboutDialog = true },
                     modifier     = Modifier.width(220.dp).fillMaxHeight()
                 )
             }
@@ -269,6 +272,10 @@ fun CollectionListScreen(
 
     if (showAboutDialog) {
         AboutDialog(onDismiss = { showAboutDialog = false })
+    }
+
+    if (showLanguageDialog) {
+        LanguagePickerDialog(onDismiss = { showLanguageDialog = false })
     }
 
 

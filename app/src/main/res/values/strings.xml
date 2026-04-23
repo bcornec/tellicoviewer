@@ -93,4 +93,7 @@
     <string name="prefs_images_folder_ok">Folder found ✓</string>
     <string name="prefs_images_folder_not_found">Folder not found — check the path</string>
     <string name="empty_collection_hint2">Tap the + button to import a .tc file</string>
+    <!-- Language picker -->
+    <string name="language_choose">Choose language</string>
+    <string name="language_flag">🌐</string>
 </resources>
