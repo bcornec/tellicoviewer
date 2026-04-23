@@ -177,34 +177,28 @@ fun CollectionSidePanel(
             }
         }
 
-        // Bottom actions: Sync + About
+        // Bottom actions: icon-only row with tooltips on long-press / hover
         HorizontalDivider()
         Row(
-            Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceEvenly
+            Modifier.fillMaxWidth().padding(horizontal = 4.dp),
+            horizontalArrangement = Arrangement.SpaceEvenly,
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            TextButton(onClick = onSyncClick) {
-                Icon(Icons.Default.Sync, null, Modifier.size(18.dp),
-                     tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                Spacer(Modifier.width(4.dp))
-                Text(stringResource(R.string.sync),
-                     style = MaterialTheme.typography.labelMedium,
-                     color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-            TextButton(onClick = onLanguageClick) {
-                Text(
-                    stringResource(R.string.language_flag),
-                    style = MaterialTheme.typography.labelMedium.copy(fontSize = 18.sp)
-                )
-            }
-            TextButton(onClick = onAboutClick) {
-                Icon(Icons.Default.Info, null, Modifier.size(18.dp),
-                     tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                Spacer(Modifier.width(4.dp))
-                Text(stringResource(R.string.about_title),
-                     style = MaterialTheme.typography.labelMedium,
-                     color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
+            TooltipIconButton(
+                icon    = Icons.Default.Sync,
+                tooltip = stringResource(R.string.sync),
+                onClick = onSyncClick
+            )
+            TooltipEmojiButton(
+                emoji   = "🌐",
+                tooltip = stringResource(R.string.language_choose),
+                onClick = onLanguageClick
+            )
+            TooltipIconButton(
+                icon    = Icons.Default.Info,
+                tooltip = stringResource(R.string.about_title),
+                onClick = onAboutClick
+            )
         }
     }
 }
@@ -723,6 +717,69 @@ fun ImagePathDialog(
             TextButton(onClick = onDismiss) { Text("Annuler") }
         }
     )
+}
+
+
+// ---------------------------------------------------------------------------
+// Tooltip icon buttons for the side panel bottom bar
+// ---------------------------------------------------------------------------
+
+/**
+ * Icon button with a Material3 plain tooltip shown on long-press (and hover on
+ * large-screen / mouse devices). Uses ExperimentalMaterial3Api TooltipBox.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun TooltipIconButton(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    tooltip: String,
+    onClick: () -> Unit
+) {
+    val tooltipState = rememberTooltipState()
+    TooltipBox(
+        positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
+        tooltip = {
+            PlainTooltip { Text(tooltip) }
+        },
+        state = tooltipState
+    ) {
+        IconButton(onClick = onClick) {
+            Icon(
+                imageVector        = icon,
+                contentDescription = tooltip,
+                tint               = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier           = Modifier.size(22.dp)
+            )
+        }
+    }
+}
+
+/**
+ * Emoji button with a plain tooltip. Used for the language picker (🌐)
+ * where no Material icon exists.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun TooltipEmojiButton(
+    emoji: String,
+    tooltip: String,
+    onClick: () -> Unit
+) {
+    val tooltipState = rememberTooltipState()
+    TooltipBox(
+        positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
+        tooltip = {
+            PlainTooltip { Text(tooltip) }
+        },
+        state = tooltipState
+    ) {
+        IconButton(onClick = onClick) {
+            Text(
+                text  = emoji,
+                style = MaterialTheme.typography.titleMedium
+            )
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------
