@@ -155,7 +155,7 @@ build() {
         debug)
             log_info "Build DEBUG..."
             $gradle assembleDebug
-            APK="app/build/outputs/apk/debug/app-debug.apk"
+            APK="app/build/outputs/apk/debug/tellicoviewer.apk"
             log_ok "APK debug : $APK ($(du -h "$APK" | cut -f1))"
             ;;
 
@@ -172,8 +172,8 @@ build() {
                 -PKEY_PASSWORD="$KEY_PASSWORD"
 
             # L'APK signé est maintenant app-release.apk (pas unsigned)
-            APK_SIGNED="app/build/outputs/apk/release/app-release.apk"
-            APK_UNSIGNED="app/build/outputs/apk/release/app-release-unsigned.apk"
+            APK_SIGNED="app/build/outputs/apk/release/tellicoviewer.apk"
+            APK_UNSIGNED="app/build/outputs/apk/release/tellicoviewer-unsigned.apk"
 
             if [[ -f "$APK_SIGNED" ]]; then
                 log_ok "APK release signé : $APK_SIGNED ($(du -h "$APK_SIGNED" | cut -f1))"

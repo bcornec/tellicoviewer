@@ -30,6 +30,14 @@ android {
             arg("room.schemaLocation", "$projectDir/schemas")
             arg("room.incremental",    "true")
         }
+	// Generate an apk named tellicoviewer
+	applicationVariants.all {
+        val variant = this
+        variant.outputs.all {
+            val output = this as com.android.build.gradle.internal.api.ApkVariantOutputImpl
+            output.outputFileName = "tellicoviewer.apk"
+        }
+    }
     }
 
     // Signature du release — paramètres passés via :

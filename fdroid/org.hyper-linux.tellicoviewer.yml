@@ -1,0 +1,30 @@
+Categories:
+  - Multimedia
+  - Reading
+License: GPL-3.0-only
+AuthorName: Bruno Cornec
+AuthorEmail: bruno@hyper-linux.org
+AuthorWebSite: https://github.com/bcornec
+SourceCode: https://github.com/bcornec/tellicoviewer
+IssueTracker: https://github.com/bcornec/tellicoviewer/issues
+Changelog: https://github.com/bcornec/tellicoviewer/releases
+AllowedAPKSigningKeys: 308ab49b66f25065681fa6b840ebd376dfcd6dad287d3f3240b5c3f3be548e15
+Binaries: https://github.com/bcornec/tellicoviewer/releases/download/%v/tellicoviewer-%v.apk
+
+AutoName: TellicoViewer
+
+RepoType: git
+Repo: https://github.com/bcornec/tellicoviewer.git
+
+Builds:
+  - versionName: 1.1.16
+    versionCode: 20
+    commit: ba78c9f3499cc7c1c2b7d027b0ce60ac4bcacfa5
+    subdir: app
+    gradle:
+      - yes
+
+AutoUpdateMode: Version
+UpdateCheckMode: Tags
+CurrentVersion: 1.1.16
+CurrentVersionCode: 20
