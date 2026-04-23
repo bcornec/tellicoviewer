@@ -121,7 +121,7 @@ Fichier .tc sur disque/réseau
         ▼ sérialisation JSON (kotlinx.serialization)
         │   + batch insert Room (500 articles/transaction)
         ▼
-   SQLite (fichier /data/data/org.fdroid.tellicoviewer/databases/)
+   SQLite (fichier /data/data/org.hyper_linux.tellicoviewer/databases/)
 ```
 
 ### Lecture paginée pour l'affichage
@@ -177,7 +177,7 @@ tellicoviewer/
 │   └── src/
 │       ├── main/
 │       │   ├── AndroidManifest.xml   # Déclaration de l'app
-│       │   ├── java/org/fdroid/tellicoviewer/
+│       │   ├── java/org.hyper_linux.tellicoviewer/
 │       │   │   ├── TellicoViewerApp.kt        # Application (singleton)
 │       │   │   ├── MainActivity.kt            # Unique Activity
 │       │   │   ├── data/
@@ -226,7 +226,7 @@ tellicoviewer/
 │   ├── tellicoviewer.pot                      # Template de traduction
 │   └── fr.po                                  # Traduction française
 ├── fdroid/
-│   └── org.fdroid.tellicoviewer.yml           # Métadonnées F-Droid
+│   └── org.hyper_linux.tellicoviewer.yml           # Métadonnées F-Droid
 ├── docs/
 │   └── TECHNICAL.md                           # Ce document
 ├── build.gradle.kts                           # Config build racine
@@ -817,7 +817,7 @@ ls app/build/outputs/apk/debug/app-debug.apk
 adb install app/build/outputs/apk/debug/app-debug.apk
 
 # Ou lancer directement
-adb shell am start -n org.fdroid.tellicoviewer.debug/.MainActivity
+adb shell am start -n org.hyper_linux.tellicoviewer.debug/.MainActivity
 ```
 
 ### Compiler l'APK release (signé)
@@ -879,15 +879,15 @@ git clone https://gitlab.com/fdroid/fdroiddata.git
 cd fdroiddata
 
 # 2. Copier notre fichier de métadonnées
-cp /path/to/tellicoviewer/fdroid/org.fdroid.tellicoviewer.yml \
-   metadata/org.fdroid.tellicoviewer.yml
+cp /path/to/tellicoviewer/fdroid/org.hyper_linux.tellicoviewer.yml \
+   metadata/org.hyper_linux.tellicoviewer.yml
 
 # 3. Tester avec fdroid-server
 pip install fdroidserver
-fdroid build org.fdroid.tellicoviewer
+fdroid build org.hyper_linux.tellicoviewer
 
 # 4. Créer une Merge Request sur GitLab fdroiddata
-git add metadata/org.fdroid.tellicoviewer.yml
+git add metadata/org.hyper_linux.tellicoviewer.yml
 git commit -m "Add TellicoViewer"
 git push
 # → Créer MR sur https://gitlab.com/fdroid/fdroiddata
@@ -966,15 +966,15 @@ En Android moderne (Single Activity Architecture) :
 adb logcat -s TellicoViewer:D TellicoParser:D TellicoRepository:D
 
 # Filtre par PID de l'application
-adb logcat --pid=$(adb shell pidof org.fdroid.tellicoviewer)
+adb logcat --pid=$(adb shell pidof org.hyper_linux.tellicoviewer)
 
 # Inspecter la base SQLite
-adb shell run-as org.fdroid.tellicoviewer sqlite3 \
-    /data/data/org.fdroid.tellicoviewer/databases/tellico_viewer.db \
+adb shell run-as org.hyper_linux.tellicoviewer sqlite3 \
+    /data/data/org.hyper_linux.tellicoviewer/databases/tellico_viewer.db \
     ".tables"
 
 # Copier la BDD sur le PC pour inspection avec DB Browser
-adb pull /data/data/org.fdroid.tellicoviewer/databases/tellico_viewer.db /tmp/
+adb pull /data/data/org.hyper_linux.tellicoviewer/databases/tellico_viewer.db /tmp/
 ```
 
 ---
