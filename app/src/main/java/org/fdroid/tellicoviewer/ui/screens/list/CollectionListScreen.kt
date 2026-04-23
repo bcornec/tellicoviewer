@@ -400,21 +400,6 @@ fun AirtableRow(
             .clickable(onClick = onClick)
             .padding(vertical = 1.dp)
     ) {
-        // Numéro de ligne
-        Box(
-            Modifier
-                .width(40.dp)
-                .fillMaxHeight()
-                .background(MaterialTheme.colorScheme.surfaceVariant),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                "${rowIndex + 1}",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-
         // Frozen columns.
         frozen.forEach { field ->
             CellValue(
