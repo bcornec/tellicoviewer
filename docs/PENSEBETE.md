@@ -30,4 +30,5 @@ adb logcat | grep -i "FATAL\|AndroidRuntime\|E/Android"
 adb push Livres.tc /sdcard/Download/
 adb shell ls /sdcard/Download/
 # Change version
+Modify versionName in app/build.gradle.kts
 check VERSION_NAME dans app/build/generated/source/buildConfig/debug/org/fdroid/tellicoviewer/BuildConfig.java
