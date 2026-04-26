@@ -20,8 +20,8 @@ android {
         applicationId         = "org.hyper_linux.tellicoviewer"
         minSdk                = 26   // Android 8 (2017) : bon équilibre couverture/modernité
         targetSdk             = 34
-        versionCode           = 28
-        versionName           = "1.1.24"
+        versionCode           = 32
+        versionName           = "1.1.28"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 

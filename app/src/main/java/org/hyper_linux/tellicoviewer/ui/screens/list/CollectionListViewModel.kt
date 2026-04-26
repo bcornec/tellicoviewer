@@ -63,8 +63,11 @@ class CollectionListViewModel @Inject constructor(
     private val _fieldFilter = MutableStateFlow<FieldFilter?>(null)
     val fieldFilter: StateFlow<FieldFilter?> = _fieldFilter.asStateFlow()
 
-    private val _sortField = MutableStateFlow<String?>(null)
-    val sortField: StateFlow<String?> = _sortField.asStateFlow()
+    private val _sortField     = MutableStateFlow<String?>(null)
+    private val _sortAscending = MutableStateFlow(true)
+
+    val sortField:     StateFlow<String?>  = _sortField.asStateFlow()
+    val sortAscending: StateFlow<Boolean>  = _sortAscending.asStateFlow()
 
     private val _importState = MutableStateFlow<ImportState>(ImportState.Idle)
     val importState: StateFlow<ImportState> = _importState.asStateFlow()
@@ -107,17 +110,29 @@ class CollectionListViewModel @Inject constructor(
             _selectedCollectionId.filterNotNull(),
             _searchQuery,
             _fieldFilter,
-            _sortField
-        ) { collId, query, filter, sort ->
-            SearchParams(collId, query, filter?.fieldName, filter?.value, sort)
+            _sortField,
+            _sortAscending
+        ) { array ->
+            @Suppress("UNCHECKED_CAST")
+            val collId    = array[0] as Long
+            val query     = array[1] as String
+            val filter    = array[2] as? FieldFilter
+            val sort      = array[3] as? String
+            val ascending = array[4] as Boolean
+            SearchParams(collId, query, filter?.fieldName, filter?.value, sort, ascending)
         }
         .flatMapLatest { params ->
+            val sortNumeric = if (!params.sortField.isNullOrBlank())
+                repository.isFieldNumeric(params.collectionId, params.sortField)
+            else false
             repository.getEntriesPaged(
-                collectionId = params.collectionId,
-                sortField    = params.sortField,
-                searchQuery  = params.searchQuery.ifBlank { null },
-                filterField  = params.filterField,
-                filterValue  = params.filterValue
+                collectionId  = params.collectionId,
+                sortField     = params.sortField,
+                sortAscending = params.sortAscending,
+                sortNumeric   = sortNumeric,
+                searchQuery   = params.searchQuery.ifBlank { null },
+                filterField   = params.filterField,
+                filterValue   = params.filterValue
             )
         }
         .cachedIn(viewModelScope)
@@ -140,6 +155,22 @@ class CollectionListViewModel @Inject constructor(
     }
 
     fun setSortField(fieldName: String?) { _sortField.value = fieldName }
+
+    /** Tap same field → toggle direction. Tap new field → ascending. */
+    fun onSortClick(fieldName: String) {
+        if (_sortField.value == fieldName) {
+            _sortAscending.value = !_sortAscending.value
+        } else {
+            _sortField.value     = fieldName
+            _sortAscending.value = true
+        }
+    }
+
+    /** Reset sort to default (title ascending). Called on sort error. */
+    fun clearSort() {
+        _sortField.value     = null
+        _sortAscending.value = true
+    }
 
     fun importFromUri(uri: Uri) {
         viewModelScope.launch {
@@ -218,4 +249,7 @@ private data class SearchParams(
     val filterField: String?,
     val filterValue: String?,
     val sortField: String?
+,
+    val sortAscending: Boolean = true,
+    val sortNumeric: Boolean = false
 )

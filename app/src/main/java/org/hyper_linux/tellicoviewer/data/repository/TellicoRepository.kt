@@ -243,32 +243,50 @@ class TellicoRepository @Inject constructor(
      * @param filterField  Field to filter on
      * @param filterValue  Filter value
      */
+    /** Returns true if the given field uses numeric ordering (NUMBER or RATING type). */
+    suspend fun isFieldNumeric(collectionId: Long, fieldName: String): Boolean {
+        val field = db.fieldDao().getFieldByName(collectionId, fieldName)
+        return field?.type in listOf("6", "14")  // NUMBER, RATING
+    }
+
     fun getEntriesPaged(
         collectionId: Long,
         sortField: String? = null,
+        sortAscending: Boolean = true,
+        sortNumeric: Boolean = false,
         searchQuery: String? = null,
         filterField: String? = null,
         filterValue: String? = null
     ): Flow<PagingData<TellicoEntry>> {
         val pagingConfig = PagingConfig(
-            pageSize         = PAGE_SIZE,
-            prefetchDistance = PREFETCH_DISTANCE,
-            enablePlaceholders = true   // allows showing skeleton placeholders while loading
+            pageSize           = PAGE_SIZE,
+            prefetchDistance   = PREFETCH_DISTANCE,
+            enablePlaceholders = true
         )
 
         return Pager(config = pagingConfig) {
             when {
-                // Recherche FTS
+                // FTS search overrides sorting.
                 !searchQuery.isNullOrBlank() -> {
-                    val ftsQuery = "${searchQuery.trim()}*"  // prefix match FTS
+                    val ftsQuery = "${searchQuery.trim()}*"
                     db.entryDao().searchFtsPaged(collectionId, ftsQuery)
                 }
                 // Field filter.
                 !filterField.isNullOrBlank() && !filterValue.isNullOrBlank() ->
                     db.entryDao().filterByField(collectionId, filterField, filterValue)
-                // Sort by title (default).
-                else ->
-                    db.entryDao().pagingSourceByTitle(collectionId)
+                // Sort on a specific field — type already resolved outside Pager lambda.
+                !sortField.isNullOrBlank() -> when {
+                    sortNumeric && sortAscending  ->
+                        db.entryDao().pagingSourceByFieldNumericAsc(collectionId, sortField)
+                    sortNumeric && !sortAscending ->
+                        db.entryDao().pagingSourceByFieldNumericDesc(collectionId, sortField)
+                    sortAscending                 ->
+                        db.entryDao().pagingSourceByFieldAsc(collectionId, sortField)
+                    else                          ->
+                        db.entryDao().pagingSourceByFieldDesc(collectionId, sortField)
+                }
+                // Default: sort by cached title.
+                else -> db.entryDao().pagingSourceByTitle(collectionId)
             }
         }.flow.map { pagingData ->
             pagingData.map { entity -> entity.toDomain() }

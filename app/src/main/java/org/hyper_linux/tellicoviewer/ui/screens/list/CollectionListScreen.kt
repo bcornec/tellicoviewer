@@ -140,6 +140,8 @@ fun CollectionListScreen(
     // Column widths: local mutable state (in-session drag resize).
     var columnWidths by remember { mutableStateOf(mapOf<String, Dp>()) }
     val savedWidths    by viewModel.savedColumnWidths.collectAsStateWithLifecycle()
+    val sortField      by viewModel.sortField.collectAsStateWithLifecycle()
+    val sortAscending  by viewModel.sortAscending.collectAsStateWithLifecycle()
     var frozenField  by remember { mutableStateOf<String?>(null) }
     var showFilterDialog by remember { mutableStateOf(false) }
     var showAboutDialog    by remember { mutableStateOf(false) }
@@ -235,6 +237,34 @@ fun CollectionListScreen(
                     ) {
                         CircularProgressIndicator()
                     }
+                    entries.loadState.refresh is androidx.paging.LoadState.Error -> {
+                        // Sort query failed (e.g. invalid field name in JSON path).
+                        // Show error with a reset button so the user can recover.
+                        Column(
+                            Modifier.fillMaxSize(),
+                            verticalArrangement = Arrangement.Center,
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Icon(
+                                Icons.Default.Close,
+                                contentDescription = null,
+                                modifier = Modifier.size(48.dp),
+                                tint = MaterialTheme.colorScheme.error
+                            )
+                            Spacer(Modifier.height(12.dp))
+                            Text(
+                                text  = stringResource(R.string.sort_error),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.error,
+                                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                                modifier  = Modifier.padding(horizontal = 24.dp)
+                            )
+                            Spacer(Modifier.height(16.dp))
+                            Button(onClick = { viewModel.clearSort() }) {
+                                Text(stringResource(R.string.sort_reset))
+                            }
+                        }
+                    }
                     else -> AirtableGrid(
                         entries              = entries,
                         fields               = fields,
@@ -246,6 +276,9 @@ fun CollectionListScreen(
                         onFreezeField        = { name ->
                             frozenField = if (frozenField == name) null else name
                         },
+                        sortField            = sortField,
+                        sortAscending        = sortAscending,
+                        onSortClick          = { name -> viewModel.onSortClick(name) },
                         onEntryClick         = { entry ->
                             selectedId?.let { cid ->
                                 onEntryClick(cid, entry.id.toLong())
@@ -291,8 +324,11 @@ fun AirtableGrid(
     fields: List<TellicoField>,
     columnWidths: Map<String, Dp>,
     frozenField: String?,
+    sortField: String?,
+    sortAscending: Boolean,
     onColumnWidthChange: (String, Dp) -> Unit,
     onFreezeField: (String) -> Unit,
+    onSortClick: (String) -> Unit,
     onEntryClick: (TellicoEntry) -> Unit,
     modifier: Modifier = Modifier,
     collectionId: Long = 0L,
@@ -314,21 +350,27 @@ fun AirtableGrid(
         ) {
             frozen.forEach { field ->
                 ColumnHeader(
-                    field    = field,
-                    width    = columnWidths[field.name] ?: 160.dp,
-                    frozen   = true,
-                    onResize = { w -> onColumnWidthChange(field.name, w) },
-                    onFreeze = { onFreezeField(field.name) }
+                    field         = field,
+                    width         = columnWidths[field.name] ?: 160.dp,
+                    frozen        = true,
+                    isSorted      = sortField == field.name,
+                    sortAscending = sortAscending,
+                    onResize      = { w -> onColumnWidthChange(field.name, w) },
+                    onFreeze      = { onFreezeField(field.name) },
+                    onSort        = { onSortClick(field.name) }
                 )
             }
             Row(Modifier.horizontalScroll(hScroll)) {
                 scrollable.forEach { field ->
                     ColumnHeader(
-                        field    = field,
-                        width    = columnWidths[field.name] ?: 160.dp,
-                        frozen   = false,
-                        onResize = { w -> onColumnWidthChange(field.name, w) },
-                        onFreeze = { onFreezeField(field.name) }
+                        field         = field,
+                        width         = columnWidths[field.name] ?: 160.dp,
+                        frozen        = false,
+                        isSorted      = sortField == field.name,
+                        sortAscending = sortAscending,
+                        onResize      = { w -> onColumnWidthChange(field.name, w) },
+                        onFreeze      = { onFreezeField(field.name) },
+                        onSort        = { onSortClick(field.name) }
                     )
                 }
             }
@@ -445,8 +487,11 @@ fun ColumnHeader(
     field: TellicoField,
     width: Dp,
     frozen: Boolean,
+    isSorted: Boolean = false,
+    sortAscending: Boolean = true,
     onResize: (Dp) -> Unit,
     onFreeze: () -> Unit,
+    onSort: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var showMenu by remember { mutableStateOf(false) }
@@ -457,7 +502,7 @@ fun ColumnHeader(
             Modifier
                 .fillMaxSize()
                 .padding(horizontal = 8.dp)
-                .combinedClickable(onClick = {}, onLongClick = { showMenu = true }),
+                .combinedClickable(onClick = { onSort() }, onLongClick = { showMenu = true }),
             verticalAlignment = Alignment.CenterVertically
         ) {
             if (frozen) {
@@ -471,13 +516,22 @@ fun ColumnHeader(
             Text(
                 text       = field.title,
                 style      = MaterialTheme.typography.labelSmall,
-                fontWeight = FontWeight.SemiBold,
+                fontWeight = if (isSorted) FontWeight.Bold else FontWeight.SemiBold,
                 maxLines   = 1,
                 overflow   = TextOverflow.Ellipsis,
-                color      = MaterialTheme.colorScheme.onSurface,
+                color      = if (isSorted) MaterialTheme.colorScheme.primary
+                             else MaterialTheme.colorScheme.onSurface,
                 modifier   = Modifier.weight(1f)
             )
-            FieldTypeIcon(field.type)
+            if (isSorted) {
+                Text(
+                    text  = if (sortAscending) "▲" else "▼",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            } else {
+                FieldTypeIcon(field.type)
+            }
         }
 
         // Poignée de redimensionnement.

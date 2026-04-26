@@ -72,6 +72,9 @@ interface FieldDao {
     @Query("SELECT * FROM fields WHERE collectionId = :collectionId ORDER BY sortOrder ASC")
     suspend fun getFieldsForCollection(collectionId: Long): List<FieldEntity>
 
+    @Query("SELECT * FROM fields WHERE collectionId = :collectionId AND name = :fieldName LIMIT 1")
+    suspend fun getFieldByName(collectionId: Long, fieldName: String): FieldEntity?
+
     @Query("SELECT * FROM fields WHERE collectionId = :collectionId ORDER BY sortOrder ASC")
     fun observeFieldsForCollection(collectionId: Long): Flow<List<FieldEntity>>
 
@@ -93,6 +96,38 @@ interface EntryDao {
 
     @Query("SELECT * FROM entries WHERE collectionId = :collectionId ORDER BY cachedTitle ASC")
     fun pagingSourceByTitle(collectionId: Long): PagingSource<Int, EntryEntity>
+
+    @Query("""
+        SELECT * FROM entries
+        WHERE  collectionId = :collectionId
+        ORDER  BY LOWER(json_extract(fieldValues, '$."'  || :fieldName || '"')) ASC,
+                  cachedTitle ASC
+    """)
+    fun pagingSourceByFieldAsc(collectionId: Long, fieldName: String): PagingSource<Int, EntryEntity>
+
+    @Query("""
+        SELECT * FROM entries
+        WHERE  collectionId = :collectionId
+        ORDER  BY LOWER(json_extract(fieldValues, '$."'  || :fieldName || '"')) DESC,
+                  cachedTitle DESC
+    """)
+    fun pagingSourceByFieldDesc(collectionId: Long, fieldName: String): PagingSource<Int, EntryEntity>
+
+    @Query("""
+        SELECT * FROM entries
+        WHERE  collectionId = :collectionId
+        ORDER  BY CAST(json_extract(fieldValues, '$."'  || :fieldName || '"') AS REAL) ASC,
+                  cachedTitle ASC
+    """)
+    fun pagingSourceByFieldNumericAsc(collectionId: Long, fieldName: String): PagingSource<Int, EntryEntity>
+
+    @Query("""
+        SELECT * FROM entries
+        WHERE  collectionId = :collectionId
+        ORDER  BY CAST(json_extract(fieldValues, '$."'  || :fieldName || '"') AS REAL) DESC,
+                  cachedTitle DESC
+    """)
+    fun pagingSourceByFieldNumericDesc(collectionId: Long, fieldName: String): PagingSource<Int, EntryEntity>
 
     @Query("SELECT * FROM entries WHERE collectionId = :collectionId ORDER BY id ASC")
     fun pagingSourceById(collectionId: Long): PagingSource<Int, EntryEntity>

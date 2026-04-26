@@ -96,4 +96,7 @@
     <!-- Language picker -->
     <string name="language_choose">Choose language</string>
     <string name="language_flag">🌐</string>
+<!-- Sort error recovery -->
+    <string name="sort_error">Sort failed on this field. Tap Reset to return to default order.</string>
+    <string name="sort_reset">Reset sort</string>
 </resources>
